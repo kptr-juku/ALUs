@@ -44,6 +44,14 @@ of Sentinel 1 processors' [processing arguments](docs/PROCESSING_ARGUMENTS.md).
 
 NVIDIA driver and NVIDIA Container Toolkit must be installed together with docker.
 
+When Docker has not been configured with the NVIDIA runtime, use the CDI device syntax instead of `--gpus all`:
+
+```
+docker run -t -d --device nvidia.com/gpu=all --name alus_container cgialus/alus-devel
+```
+
+With NVIDIA runtime configured for Docker, the regular `--gpus all` syntax can be used:
+
 ```
 docker pull cgialus/alus-devel:latest
 docker run -t -d --gpus all --name alus_container cgialus/alus-devel
@@ -71,6 +79,7 @@ docker exec -it alus_container /bin/bash
 # Building
 
 ```
+git submodule update --init --recursive
 cmake . -Bbuild
 cd build
 make -j8
