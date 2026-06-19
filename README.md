@@ -85,6 +85,13 @@ cd build
 make -j8
 ```
 
+When building inside `cgialus/alus-devel` for newer NVIDIA GPUs than the image's CUDA SDK knows natively, explicitly include PTX for the newest architecture supported by that SDK. For example, with the CUDA 11.4 based `alus-devel` image:
+
+```
+cmake -S . -Bbuild-alus-devel -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES="86-real;86-virtual"
+cmake --build build-alus-devel --target alus-cal alus-coh -j8
+```
+
 # Jupyter Notebook
 
 There is a Jupyter Notebook located at `jupyter-notebook` folder with a user-friendly interface and automated auxiliary file downloads.
