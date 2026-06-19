@@ -181,7 +181,7 @@ void TopsarSplit::Initialize() {
     if (!burst_aoi_wkt_.empty()) {
         Aoi aoi_polygon;
         try {
-            boost::geometry::read<boost::geometry::format_wkt>(aoi_polygon, burst_aoi_wkt_);
+            boost::geometry::read_wkt(burst_aoi_wkt_, aoi_polygon);
         } catch (const boost::geometry::exception& e) {
             throw common::AlgorithmException(ALG_NAME, e.what());
         }

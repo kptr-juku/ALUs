@@ -18,6 +18,8 @@
 #include <future>
 #include <string>
 
+#include <boost/algorithm/string/join.hpp>
+
 #include "abstract_metadata.h"
 #include "algorithm_exception.h"
 #include "alus_log.h"
@@ -148,7 +150,8 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
             }
         }
 
-        std::string coh_output_file = boost::filesystem::change_extension(cor_output_file, "").string() + "_coh.tif";
+        std::string coh_output_file = boost::filesystem::path(cor_output_file).replace_extension("").string() +
+                                      "_coh.tif";
         GDALDataset* coh_dataset = nullptr;
         {
             const auto coh_start = std::chrono::steady_clock::now();
@@ -271,7 +274,8 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
                                                                  main_product->GetSceneRasterHeight()));
         auto deburst_op = alus::s1tbx::TOPSARDeburstOp::CreateTOPSARDeburstOp(main_product);
         auto debursted_product = deburst_op->GetTargetProduct();
-        std::string deb_output_file = boost::filesystem::change_extension(coh_output_file, "").string() + "_deb.tif";
+        std::string deb_output_file = boost::filesystem::path(coh_output_file).replace_extension("").string() +
+                                      "_deb.tif";
         auto data_writer = std::make_shared<alus::snapengine::custom::GdalImageWriter>();
         data_writer->Open(deb_output_file, deburst_op->GetTargetProduct()->GetSceneRasterWidth(),
                           deburst_op->GetTargetProduct()->GetSceneRasterHeight(), data_reader->GetGeoTransform(),
@@ -372,7 +376,7 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
                                             d_elevation_tiles_prop, elevation_tile_type, elevation_tiles_host_prop,
                                             selected_band);
     std::string tc_output_file = predefined_end_result_name.empty()
-                                     ? boost::filesystem::change_extension(output_file, "").string() + "_tc.tif"
+                                     ? boost::filesystem::path(output_file).replace_extension("").string() + "_tc.tif"
                                      : predefined_end_result_name;
     tc.RegisterMetadata(metadata_);
     tc.ExecuteTerrainCorrection(tc_output_file, x_tile_size, y_tile_size);

@@ -417,7 +417,7 @@ void Execute::Deburst(const std::vector<std::shared_ptr<snapengine::Product>>& c
         deburst_products.at(i) = deburst_op->GetTargetProduct();
 
         auto& output_name = output_names.at(i);
-        output_name = boost::filesystem::change_extension(output_name, "").string() + "_deb.tif";
+        output_name = boost::filesystem::path(output_name).replace_extension("").string() + "_deb.tif";
         data_writer->Open(output_name, deburst_products.at(i)->GetSceneRasterWidth(),
                           deburst_products.at(i)->GetSceneRasterHeight(), data_reader->GetGeoTransform(),
                           data_reader->GetDataProjection(), true);
@@ -458,7 +458,7 @@ void Execute::Merge(const std::vector<std::shared_ptr<snapengine::Product>>& deb
             }
         }
 
-        auto product_name_stem = boost::filesystem::change_extension(output_names.front(), "").string();
+        auto product_name_stem = boost::filesystem::path(output_names.front()).replace_extension("").string();
         {
             const auto find_it = product_name_stem.find("Cal_IW");
             if (find_it != std::string::npos) {
@@ -515,7 +515,8 @@ std::string Execute::TerrainCorrection(const std::shared_ptr<snapengine::Product
         dem_tiles_length, dem_assistant->GetElevationManager()->GetProperties(), dem_assistant->GetType(),
         dem_assistant->GetElevationManager()->GetPropertiesValue(), selected_band);
     std::string tc_output_file = predefined_output_name.empty()
-                                     ? boost::filesystem::change_extension(output_name.data(), "").string() + "_tc.tif"
+                                     ? boost::filesystem::path(std::string(output_name)).replace_extension("").string() +
+                                           "_tc.tif"
                                      : std::string(predefined_output_name);
     tc.RegisterMetadata(metadata_);
     tc.ExecuteTerrainCorrection(tc_output_file, x_tile_size, y_tile_size, params_.output_db_values);
