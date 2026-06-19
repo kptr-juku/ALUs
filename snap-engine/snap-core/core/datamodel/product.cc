@@ -19,6 +19,7 @@
 #include "product.h"
 
 #include <cstdint>
+#include <cmath>
 #include <stdexcept>
 #include <utility>
 
@@ -402,7 +403,7 @@ bool Product::EqualsLatLon(const std::shared_ptr<GeoPos>& pos1, const std::share
 }
 
 bool Product::EqualsOrNaN(double v1, double v2, float eps) {
-    return MathUtils::EqualValues(v1, v2, eps) || (isnan(v1) && isnan(v2));
+    return MathUtils::EqualValues(v1, v2, eps) || (std::isnan(v1) && std::isnan(v2));
 }
 std::vector<std::shared_ptr<TiePointGrid>> Product::GetTiePointGrids() {
     auto tie_point_grids = std::vector<std::shared_ptr<TiePointGrid>>(GetNumTiePointGrids());
