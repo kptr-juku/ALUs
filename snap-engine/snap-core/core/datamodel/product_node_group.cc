@@ -18,6 +18,8 @@
  */
 #include "product_node_group.h"
 
+#include <cstdint>
+
 #include "ceres-core/core/ceres_assert.h"
 #include "snap-core/core/dataio/product_subset_def.h"
 #include "snap-core/core/datamodel/band.h"

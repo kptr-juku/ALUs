@@ -14,6 +14,8 @@
 
 #include "chirp.h"
 
+#include <cstdint>
+
 #include <cuda_runtime.h>
 
 #include "alus_log.h"

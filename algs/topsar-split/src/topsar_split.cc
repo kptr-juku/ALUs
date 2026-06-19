@@ -13,6 +13,7 @@
  */
 #include "topsar_split.h"
 
+#include <cstdint>
 #include <memory>
 #include <string_view>
 

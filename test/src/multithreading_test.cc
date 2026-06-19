@@ -14,6 +14,7 @@
 #include "gmock/gmock.h"
 
 #include <atomic>
+#include <cstdint>
 #include <thread>
 
 #include "tile_queue.h"

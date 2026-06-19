@@ -14,6 +14,8 @@
 
 #include "sentinel2_dataset.h"
 
+#include <cstdint>
+
 #include <gdal_priv.h>
 
 #include "alus_log.h"

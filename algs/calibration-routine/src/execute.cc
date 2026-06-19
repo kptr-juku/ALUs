@@ -15,6 +15,7 @@
 #include "execute.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string>

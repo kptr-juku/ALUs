@@ -15,6 +15,7 @@
 
 #include <climits>
 #include <cmath>
+#include <cstdint>
 #include <vector>
 
 #include "shapes.h"

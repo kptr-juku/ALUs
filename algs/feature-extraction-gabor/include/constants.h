@@ -18,4 +18,6 @@
 
 namespace alus::featurextractiongabor {
 constexpr std::string_view ALG_NAME{"Gabor feature extraction"};
+constexpr float PI_FLOAT{3.141592653589793238462643383279502884f};
+constexpr double PI_DOUBLE{3.141592653589793238462643383279502884};
 }

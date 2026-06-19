@@ -18,6 +18,7 @@
  */
 #include "product.h"
 
+#include <cstdint>
 #include <stdexcept>
 #include <utility>
 

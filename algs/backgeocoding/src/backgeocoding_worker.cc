@@ -13,6 +13,7 @@
  */
 #include "backgeocoding_controller.h"
 
+#include <cstdint>
 #include <vector>
 
 #include "alus_log.h"
