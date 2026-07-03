@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 #include "device_padded_image.h"
 #include "palsar_metadata.h"
 

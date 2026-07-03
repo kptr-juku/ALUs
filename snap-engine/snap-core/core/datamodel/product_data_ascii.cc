@@ -19,6 +19,7 @@
 #include "product_data_ascii.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <stdexcept>
 
 namespace alus::snapengine {

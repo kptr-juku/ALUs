@@ -15,6 +15,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstdint>
 #include <map>
 #include <mutex>
 #include <stdexcept>

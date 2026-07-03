@@ -14,6 +14,7 @@
 #include "thermal_noise_remover.h"
 
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <vector>

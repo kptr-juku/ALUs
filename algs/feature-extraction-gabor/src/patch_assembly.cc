@@ -13,6 +13,7 @@
  */
 
 #include <algorithm>
+#include <cstdint>
 #include <stdexcept>
 
 #include "../include/patch_assembly.h"

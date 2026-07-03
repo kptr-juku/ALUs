@@ -17,6 +17,7 @@
 #include <cmath>
 #include <stdexcept>
 
+#include "../include/constants.h"
 #include "../include/filter_bank.h"
 
 namespace {
@@ -43,7 +44,7 @@ std::vector<float> GenerateOrientations(size_t orientation_count) {
     std::vector<float> values(orientation_count);
     const auto oc_divide_f = static_cast<float>(orientation_count);
     for (size_t o = 0; o < orientation_count; o++) {
-        values.at(o) = (static_cast<float>(o) / oc_divide_f) * M_PIf32;
+        values.at(o) = (static_cast<float>(o) / oc_divide_f) * PI_FLOAT;
     }
 
     return values;
@@ -95,8 +96,8 @@ void ComputeFilterBankItem(float* buf, size_t buf_size, const FilterBankItemPara
     ThrowIfDimensionsDoNotAlign(params.filter_dimension_seed, buf_size);
     const auto dimension = static_cast<int>(ComputeFilterDimension(params.filter_dimension_seed));
     const auto sigma_squared = params.sigma * params.sigma;
-    constexpr auto two_pi_f = 2 * M_PIf32;
-    constexpr auto two_pi_d = 2 * M_PIf64;
+    constexpr auto two_pi_f = 2.0f * PI_FLOAT;
+    constexpr auto two_pi_d = 2.0 * PI_DOUBLE;
     for (auto x{0}; x < dimension; x++) {
         for (auto y{0}; y < dimension; y++) {
             const auto index = x * dimension + y;
@@ -108,7 +109,7 @@ void ComputeFilterBankItem(float* buf, size_t buf_size, const FilterBankItemPara
             const float expression = -1.0f * (prod1 + prod2) / 2;
             const float exp = std::exp(expression);
 
-            // Using M_PIf64 here to trigger std::cos(double) overload which does not generate different results
+            // Use double precision here to trigger std::cos(double) overload which does not generate different results
             // after every pi/2 compared to original implementation
             buf[index] =
                 a * exp * static_cast<float>(std::cos(two_pi_d * params.theta_x[index] / params.lambda + params.phy));

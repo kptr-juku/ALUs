@@ -18,6 +18,7 @@
  */
 #include "product_data.h"
 
+#include <cstdint>
 #include <sstream>
 #include <stdexcept>
 

@@ -18,6 +18,7 @@
  */
 #include "snap-engine-utilities/engine-utilities/util/test_utils.h"
 
+#include <cmath>
 #include <stdexcept>
 
 #include <boost/algorithm/string.hpp>
@@ -127,7 +128,7 @@ void TestUtils::VerifyProduct(const std::shared_ptr<Product>& product, bool veri
                 const std::vector<float> float_values(w);
                 b->ReadPixels(x0, y, w, 1, float_values, std::make_shared<ceres::NullProgressMonitor>());
                 for (float f : float_values) {
-                    if (!(f == b->GetNoDataValue() || f == 0 || isnan(f))) {
+                    if (!(f == b->GetNoDataValue() || f == 0 || std::isnan(f))) {
                         all_no_data = false;
                     }
                 }

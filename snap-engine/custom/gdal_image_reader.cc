@@ -14,6 +14,7 @@
 #include "custom/gdal_image_reader.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <stdexcept>
 
 #include "alus_log.h"

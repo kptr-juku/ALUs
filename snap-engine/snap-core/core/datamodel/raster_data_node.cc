@@ -19,6 +19,7 @@
 #include "raster_data_node.h"
 
 #include <cmath>
+#include <cstdint>
 #include <stdexcept>
 #include <utility>
 

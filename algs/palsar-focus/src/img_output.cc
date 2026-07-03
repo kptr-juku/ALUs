@@ -15,6 +15,7 @@
 #include "img_output.h"
 
 #include <condition_variable>
+#include <cstdint>
 #include <queue>
 #include <thread>
 

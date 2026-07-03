@@ -19,6 +19,7 @@
 #pragma once
 
 #include <any>
+#include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <string>

@@ -12,6 +12,8 @@
  * with this program; if not, see http://www.gnu.org/licenses/
  */
 #pragma once
+#include <cstdint>
+
 #include <cuda_runtime.h>
 
 #include "general_constants.h"

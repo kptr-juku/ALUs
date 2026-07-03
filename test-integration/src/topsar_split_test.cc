@@ -12,6 +12,7 @@
  * with this program; if not, see http://www.gnu.org/licenses/
  */
 
+#include <cstdint>
 #include <memory>
 
 #include <boost/geometry.hpp>

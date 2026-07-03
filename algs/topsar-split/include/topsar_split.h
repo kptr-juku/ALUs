@@ -13,11 +13,13 @@
  */
 #pragma once
 
-#include <s1tbx-commons/sentinel1_utils.h>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include <s1tbx-commons/sentinel1_utils.h>
 
 #include "c16_dataset.h"
 #include "s1tbx-commons/sentinel1_utils.h"

@@ -118,3 +118,8 @@ Below are rough figures:
 # [Release notes](RELEASE.md)
 
 [Binary downloads](https://github.com/cgi-estonia-space/ALUs/releases/) 
+
+# Troubleshooting
+
+For CUDA related errors - [CUDA troubleshooting](CUDA_TROUBLESHOOT.md).
+

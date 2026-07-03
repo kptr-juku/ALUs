@@ -18,6 +18,7 @@
  */
 #include "guardian.h"
 
+#include <cstdint>
 #include <sstream>
 #include <stdexcept>
 #include <string>

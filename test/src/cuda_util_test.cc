@@ -12,6 +12,8 @@
  * with this program; if not, see http://www.gnu.org/licenses/
  */
 
+#include <cstdint>
+
 #include "gmock/gmock.h"
 
 #include "cuda_mem_arena.h"
