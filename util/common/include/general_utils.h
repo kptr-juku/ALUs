@@ -13,9 +13,10 @@
  */
 #pragma once
 
+#include <algorithm>
 #include <chrono>
+#include <cctype>
 #include <functional>
-#include <sstream>
 #include <string>
 #include <string_view>
 
@@ -102,4 +103,15 @@ inline bool IsZipOrSafeInput(const std::vector<std::string>& input_datasets) {
         return extension == ".SAFE" || extension == ".safe";
     });
 }
+
+inline void ToLower(std::string& str) {
+    std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c){ return std::tolower(c); });
+}
+
+inline std::string ToLower(std::string_view str) {
+    auto str_copy = std::string{str};
+    std::transform(str_copy.begin(), str_copy.end(), str_copy.begin(), [](unsigned char c){ return std::tolower(c); });
+    return str_copy;
+}
+
 }  // namespace alus::utils::general

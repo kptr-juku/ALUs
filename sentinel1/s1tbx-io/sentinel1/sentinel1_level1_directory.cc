@@ -29,8 +29,8 @@
 
 #include "alus_log.h"
 #include "general_constants.h"
+#include "general_utils.h"
 #include "s1tbx-commons/io/sar_reader.h"
-#include "s1tbx-io/geotiffxml/geo_tiff_utils.h"
 #include "s1tbx-io/sentinel1/sentinel1_constants.h"
 #include "snap-core/core/datamodel/band.h"
 #include "snap-core/core/datamodel/i_geo_coding.h"
@@ -60,7 +60,7 @@ void Sentinel1Level1Directory::AddBands(const std::shared_ptr<snapengine::Produc
     for (auto& string_image_i_o_file_entry : band_image_file_map_) {
         std::shared_ptr<ImageIOFile> img = string_image_i_o_file_entry.second;
         std::string img_name = img->GetName();
-        boost::algorithm::to_lower(img_name);
+        utils::general::ToLower(img_name);
         std::shared_ptr<snapengine::MetadataElement> band_metadata =
             abs_root->GetElement(img_band_metadata_map_.at(img_name));
         std::string swath = band_metadata->GetAttributeString(snapengine::AbstractMetadata::SWATH);
@@ -895,7 +895,8 @@ void Sentinel1Level1Directory::AddBandAbstractedMetadata(
         const std::shared_ptr<snapengine::MetadataElement> band_abs_root =
             snapengine::AbstractMetadata::AddBandAbstractedMetadata(abs_root, band_root_name);
 
-        const std::string img_name = snapengine::FileUtils::ExchangeExtension(metadata_file, ".tiff");
+        std::string img_name = snapengine::FileUtils::ExchangeExtension(metadata_file, ".tiff");
+        utils::general::ToLower(img_name);
         img_band_metadata_map_.emplace(img_name, band_root_name);
 
         snapengine::AbstractMetadata::SetAttribute(band_abs_root, snapengine::AbstractMetadata::SWATH, swath);
