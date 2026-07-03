@@ -1,4 +1,9 @@
 cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
+
+if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES AND NOT DEFINED ENV{CUDAARCHS})
+    set(CMAKE_CUDA_ARCHITECTURES "86-real;86-virtual" CACHE STRING "CUDA architectures")
+endif()
+
 project(ALUs
         LANGUAGES CXX CUDA
         DESCRIPTION "Parallel ALUs for geospatial data processing"
@@ -31,10 +36,6 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda")
 
 INCLUDE_DIRECTORIES(${CUDAToolkit_INCLUDE_DIRS})
 
-if (NOT CMAKE_CUDA_ARCHITECTURES)
-    message(STATUS "CMAKE_CUDA_ARCHITECTURES not set, defaulting")
-    set(CMAKE_CUDA_ARCHITECTURES 60 CACHE STRING "CUDA architectures" FORCE)
-endif()
 message(STATUS "CUDA binary code will be generated for the following architecture(s) - ${CMAKE_CUDA_ARCHITECTURES}")
 
 find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options date_time filesystem iostreams log log_setup)
