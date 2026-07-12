@@ -85,11 +85,12 @@ Current status: partially synced for selected IW SAFE Level-1 reader fixes only.
 | `d8cd6bb39` `refactor SafeManifest` | `FindElement()` / manifest parsing | Support `metadataWrap/xmlData` and direct `xmlData` | Manifest hardening only |
 | `73e10e98b` `S1TBX-868 new Spacety format` | `AddManifestMetadata()` | Guard optional orbit metadata nodes | Runtime warnings added where guarded paths are used |
 | `d8353246c` `[S1TBX-647] Modified S-1 reader to handle image crossing anti-meridian` | `AddTiePointGrids()` | Normalize negative longitudes when crossing the antimeridian | Functional geolocation change; runtime warning added because ALUs output correctness is not yet validated |
-| `a8dd51abe` `SNAP-4185 use ProductCache for netcdf readers` | `AddTiePointGrids()` | Guard invalid raster/grid dimensions before subsampling | ProductCache behavior not ported |
+| `a8dd51abe` `SNAP-4185 use ProductCache for netcdf readers` | `AddTiePointGrids()` | Guard invalid raster/grid dimensions before subsampling | ProductCache behavior and annotation-only dimension fallback not ported |
 | `f08897475` `fix prefix` | `AddTiePointGrids()` / `AddGeoCoding()` | Store and apply geocoding by TOPSAR prefix for IW bands | IW subset only; WV-specific behavior not claimed |
 | `4adf88da0` `handle RCM sim RV RH products` | `image_i_o_file.*` | Close underlying image reader instead of throwing | Reader lifecycle behavior |
+| `057211babf` `S1TBX-758 use min of product dimensions or 10 for the TPG grid`, `904e622ac0` `avoid 1 pixel grid`, `117bd71c68` `S1TBX-895 subsampling as double` | `ReaderUtils::AddGeoCoding()` / `CreateFineTiePointGrid()` | Clamp generated TPG dimensions, compute subsampling as double, and fix ALUs C++ output-vector pass-by-value bug | Relevant to product-level TPGs consumed by Range-Doppler terrain correction |
 
-Deferred reader items: full current `Sentinel1ProductReader` behavior, ProductCache and stream-cache architecture, full SAFE folder/zip qualification drift, RFI metadata, range-window metadata, annotation-only product validation, and non-IW product-family support unless required by benchmark inputs.
+Annotation-only dimension fallback from upstream is explicitly not implemented because ALUs targets computation on products with measurement data. Deferred reader items: full current `Sentinel1ProductReader` behavior, ProductCache and stream-cache architecture, full SAFE folder/zip qualification drift, RFI metadata, range-window metadata, and non-IW product-family support unless required by benchmark inputs.
 
 ### Orbit Application
 
@@ -202,3 +203,5 @@ The queue is ordered by dependency, not by final algorithm importance. Foundatio
 | 10 | SAR physics extensions and ETAD-related logic | Review as a separate scope decision after baseline chains are aligned; ETAD, tropospheric/phase-screen corrections, and other newer physics features may be high impact but should not block foundational SAFE/product compatibility unless required by benchmarks |
 
 Queue status note: items 1 and 2 have selected IW SAFE reader fixes applied, but item 2 remains open for full reader/product-directory review. The implemented changes harden manifest parsing, tie-point-grid geocoding, antimeridian handling, and reader close behavior; they do not claim full parity with current Microwave Toolbox `sar-io`.
+
+Range-Doppler geocoding note: `ReaderUtils::CreateFineTiePointGrid()` is not discarded from review. ALUs Range-Doppler terrain correction can consume product latitude/longitude tie-point grids, and ALUs had a C++ port-specific output-vector pass-by-value issue in this helper path. The STEP forum report [Geolocation inaccuracy](https://forum.step.esa.int/t/geolocation-inaccuracy/37504) is tracked as Range-Doppler/TOPSAR subset-size geolocation evidence, not as proof that `CreateFineTiePointGrid()` alone caused the upstream issue.
