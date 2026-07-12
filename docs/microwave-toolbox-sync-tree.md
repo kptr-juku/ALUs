@@ -6,7 +6,7 @@
 
 This document tracks how ALUs components relate to the legacy S1TBX code layout and the current SNAP Microwave Toolbox layout. It is a working sync tree for reviewing which upstream Microwave Toolbox changes may need to be considered for ALUs upgrades.
 
-The scope is provenance and traceability. Prioritisation, benchmark framing, and discussion context are covered in [`S1TBX_MICROWAVE_TOOLBOX_UPGRADE_REVIEW.md`](S1TBX_MICROWAVE_TOOLBOX_UPGRADE_REVIEW.md).
+The scope is provenance and traceability. Prioritisation, benchmark framing, and discussion context are covered in [`s1tbx-microwave-toolbox-upgrade-abstract.md`](s1tbx-microwave-toolbox-upgrade-abstract.md).
 
 ## Interpretation
 
