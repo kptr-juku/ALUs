@@ -77,6 +77,20 @@ ALUs
 | `sentinel1/s1tbx-io/geotiffxml/geo_tiff_utils.*` | `GeoTiffUtils.java` | `GeoTiffUtils.java` | GeoTIFF XML metadata handling |
 | `sentinel1/s1tbx-commons/io/*` | `s1tbx-commons/.../io/*.java` | `sar-commons` / `sar-io` equivalents | Abstract product directory, SAR reader, image file and band info model |
 
+Current status: partially synced for selected IW SAFE Level-1 reader fixes only. This section is not complete and should not be interpreted as a full sync with current Microwave Toolbox `sar-io`.
+
+| Upstream commit | ALUs target | Synced behavior | Scope note |
+|---|---|---|---|
+| `12db283e1` `SNAP-3750 ensure case for CDSE product` | `sentinel1_level1_directory.cc` | Lower-case image-to-band metadata lookup | IW SAFE relevant |
+| `d8cd6bb39` `refactor SafeManifest` | `FindElement()` / manifest parsing | Support `metadataWrap/xmlData` and direct `xmlData` | Manifest hardening only |
+| `73e10e98b` `S1TBX-868 new Spacety format` | `AddManifestMetadata()` | Guard optional orbit metadata nodes | Runtime warnings added where guarded paths are used |
+| `d8353246c` `[S1TBX-647] Modified S-1 reader to handle image crossing anti-meridian` | `AddTiePointGrids()` | Normalize negative longitudes when crossing the antimeridian | Functional geolocation change; runtime warning added because ALUs output correctness is not yet validated |
+| `a8dd51abe` `SNAP-4185 use ProductCache for netcdf readers` | `AddTiePointGrids()` | Guard invalid raster/grid dimensions before subsampling | ProductCache behavior not ported |
+| `f08897475` `fix prefix` | `AddTiePointGrids()` / `AddGeoCoding()` | Store and apply geocoding by TOPSAR prefix for IW bands | IW subset only; WV-specific behavior not claimed |
+| `4adf88da0` `handle RCM sim RV RH products` | `image_i_o_file.*` | Close underlying image reader instead of throwing | Reader lifecycle behavior |
+
+Deferred reader items: full current `Sentinel1ProductReader` behavior, ProductCache and stream-cache architecture, full SAFE folder/zip qualification drift, RFI metadata, range-window metadata, annotation-only product validation, and non-IW product-family support unless required by benchmark inputs.
+
 ### Orbit Application
 
 | ALUs path | Legacy S1TBX source | Current Microwave Toolbox source | Review focus |
@@ -186,3 +200,5 @@ The queue is ordered by dependency, not by final algorithm importance. Foundatio
 | 8 | Backgeocoding and coregistration | Review after burst metadata, orbit support, and terrain/DEM handling are aligned; directly affects coherence quality and includes substantial upstream divergence |
 | 9 | Coherence | Review after coregistration inputs are stable; final coherence values are benchmark-visible and depend on window defaults, no-data handling, flat-earth phase subtraction, and metadata output |
 | 10 | SAR physics extensions and ETAD-related logic | Review as a separate scope decision after baseline chains are aligned; ETAD, tropospheric/phase-screen corrections, and other newer physics features may be high impact but should not block foundational SAFE/product compatibility unless required by benchmarks |
+
+Queue status note: items 1 and 2 have selected IW SAFE reader fixes applied, but item 2 remains open for full reader/product-directory review. The implemented changes harden manifest parsing, tie-point-grid geocoding, antimeridian handling, and reader close behavior; they do not claim full parity with current Microwave Toolbox `sar-io`.

@@ -74,6 +74,22 @@ These are candidate quality-affecting areas seen from local repository inspectio
 
 **S1C/S1D code evidence**: ALUs parses the SAFE platform metadata as `familyName + number`, producing mission strings such as `SENTINEL-1D` in `sentinel1/s1tbx-io/sentinel1/sentinel1_level1_directory.cc`. Its shared validation then checks the `SENTINEL-1` prefix in `snap-engine/snap-engine-utilities/engine-utilities/gpf/input_product_validator.cc` and `sentinel1/s1tbx-commons/sentinel1_utils.cc`. Current Microwave Toolbox has the same generic `Sentinel1Utils` prefix check, while `sar-op-calibration/.../Sentinel1Calibrator.java` also lists `SENTINEL-1A`, `SENTINEL-1B`, `SENTINEL-1C`, and `SENTINEL-1D` explicitly.
 
+## Sentinel-1 Reader Sync Status
+
+The Sentinel-1 reader section is not fully implemented or fully synced with current Microwave Toolbox. The current ALUs changes are a targeted, IW-relevant subset of SAFE Level-1 reader hardening and geocoding fixes. They should be treated as partial sync work, not as completion of the full `sar-io` reader review.
+
+| Upstream commit | Synced ALUs scope | Status |
+|---|---|---|
+| `12db283e1` `SNAP-3750 ensure case for CDSE product` | Lower-case image names for image-to-band metadata lookup | Synced |
+| `d8cd6bb39` `refactor SafeManifest` | Manifest element lookup accepts both `metadataWrap/xmlData` and direct `xmlData` | Synced subset |
+| `73e10e98b` `S1TBX-868 new Spacety format` | Optional `orbitReference`, `OrbitNumber`, `relativeOrbitNumber`, and pass fallback nodes are guarded | Synced subset |
+| `d8353246c` `[S1TBX-647] Modified S-1 reader to handle image crossing anti-meridian` | Negative longitudes are normalized before tie-point interpolation when the geolocation grid crosses the antimeridian | Synced, with ALUs runtime warning because this path is not yet validated on ALUs outputs |
+| `a8dd51abe` `SNAP-4185 use ProductCache for netcdf readers` | Only the invalid raster/grid dimension guard before tie-point-grid creation was ported | Partial; ProductCache behavior was not ported |
+| `f08897475` `fix prefix` | IW-relevant subset: band geocoding is keyed by TOPSAR prefix (`IW1_`, `IW2_`, `IW3_`) instead of concrete band pointer | Partial; WV-specific behavior from surrounding upstream commits is out of scope |
+| `4adf88da0` `handle RCM sim RV RH products` | `ImageIOFile::Close()` closes the underlying reader instead of throwing | Synced behavior |
+
+Remaining Sentinel-1 reader review items include updated `sar-io` product-reader behavior, cache/performance changes, full SAFE folder/zip qualification drift, RFI and range-window metadata, annotation-only products, and newer product families such as COG/GSLC/ETAD where they affect selected benchmarks. OCN, WV, EW, ETAD, COG, and GSLC support remain out of the current IW-only sync scope unless benchmark inputs require them.
+
 ## Stepwise Review Plan
 
 | Step | Output |

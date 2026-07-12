@@ -18,6 +18,7 @@
  */
 #include "s1tbx-io/sentinel1/sentinel1_level1_directory.h"
 
+#include <cmath>
 #include <stdexcept>
 #include <vector>
 
@@ -49,6 +50,10 @@
 #include "snap-engine-utilities/engine-utilities/gpf/reader_utils.h"
 
 namespace alus::s1tbx {
+namespace {
+constexpr const char* UNTESTED_ALUS_WARNING =
+    "this is not tested for ALUs, please ensure the processed data products' correctness";
+}
 
 Sentinel1Level1Directory::Sentinel1Level1Directory(const boost::filesystem::path& input_file)
     : XMLProductDirectory(input_file) {}
@@ -199,7 +204,7 @@ void Sentinel1Level1Directory::DetermineProductDimensions(
     for (auto& string_image_i_o_file_entry : band_image_file_map_) {
         auto img = string_image_i_o_file_entry.second;
         std::string img_name = img->GetName();
-        boost::algorithm::to_lower(img_name);
+        utils::general::ToLower(img_name);
         std::string band_metadata_name = img_band_metadata_map_.at(img_name);
         if (band_metadata_name.empty()) {
             throw std::runtime_error("Metadata for measurement dataset " + img_name + " not found");
@@ -296,19 +301,43 @@ void Sentinel1Level1Directory::AddTiePointGrids(const std::shared_ptr<snapengine
         ++i;
     }
 
+    bool crosses_antimeridian = false;
+    for (std::size_t j = 1; j < lng_list.size(); ++j) {
+        if (std::abs(lng_list.at(j) - lng_list.at(j - 1)) > 350.0) {
+            crosses_antimeridian = true;
+            break;
+        }
+    }
+    if (crosses_antimeridian) {
+        LOGW << "Sentinel-1 tie-point longitude antimeridian correction applied; " << UNTESTED_ALUS_WARNING;
+        for (double& longitude : lng_list) {
+            if (longitude < 0.0) {
+                longitude += 360.0;
+            }
+        }
+    }
+
     const int new_grid_width = grid_width;
     const int new_grid_height = grid_height;
-    std::vector<float> new_lat_list(new_grid_width * new_grid_height);
-    std::vector<float> new_lon_list(new_grid_width * new_grid_height);
-    std::vector<float> new_inc_list(new_grid_width * new_grid_height);
-    std::vector<float> new_elev_list(new_grid_width * new_grid_height);
-    std::vector<float> new_slrt_list(new_grid_width * new_grid_height);
     int scene_raster_width = product->GetSceneRasterWidth();
     int scene_raster_height = product->GetSceneRasterHeight();
     if (band) {
         scene_raster_width = band->GetRasterWidth();
         scene_raster_height = band->GetRasterHeight();
     }
+
+    if (scene_raster_width <= 0 || scene_raster_height <= 0 || new_grid_width <= 1 || new_grid_height <= 1) {
+        LOGW << "Unable to create tie-point grids: invalid dimensions (rasterWidth=" << scene_raster_width
+             << ", rasterHeight=" << scene_raster_height << ", gridWidth=" << new_grid_width
+             << ", gridHeight=" << new_grid_height << "); " << UNTESTED_ALUS_WARNING;
+        return;
+    }
+
+    std::vector<float> new_lat_list(new_grid_width * new_grid_height);
+    std::vector<float> new_lon_list(new_grid_width * new_grid_height);
+    std::vector<float> new_inc_list(new_grid_width * new_grid_height);
+    std::vector<float> new_elev_list(new_grid_width * new_grid_height);
+    std::vector<float> new_slrt_list(new_grid_width * new_grid_height);
 
     const auto sub_sampling_x = static_cast<double>(scene_raster_width) / (new_grid_width - 1);
     const auto sub_sampling_y = static_cast<double>(scene_raster_height) / (new_grid_height - 1);
@@ -376,8 +405,8 @@ void Sentinel1Level1Directory::AddTiePointGrids(const std::shared_ptr<snapengine
     std::shared_ptr<snapengine::TiePointGeoCoding> tp_geo_coding =
         std::make_shared<snapengine::TiePointGeoCoding>(lat_grid, lon_grid);
 
-    if (band) {
-        band_geocoding_map_.emplace(band, tp_geo_coding);
+    if (!pre.empty()) {
+        band_geocoding_map_.emplace(pre, tp_geo_coding);
     }
 }
 void Sentinel1Level1Directory::GetListInEvenlySpacedGrid(const int scene_raster_width, const int scene_raster_height,
@@ -534,65 +563,78 @@ void Sentinel1Level1Directory::AddGeoCoding(const std::shared_ptr<snapengine::Pr
             last_s_w_band_found = true;
         }
     }
-    if (first_s_w_band != nullptr && last_s_w_band != nullptr) {
-        const std::shared_ptr<snapengine::IGeoCoding> first_s_w_band_geo_coding =
-            band_geocoding_map_.at(first_s_w_band);
-        const int first_s_w_band_height = first_s_w_band->GetRasterHeight();
+    if (!band_names.empty()) {
+        if (first_s_w_band != nullptr && last_s_w_band != nullptr) {
+            const std::string first_s_w_prefix = acquisition_mode + std::to_string(1) + '_';
+            const std::string last_s_w_prefix = acquisition_mode + std::to_string(num_of_sub_swath) + '_';
+            const auto first_s_w_band_geo_coding = band_geocoding_map_.find(first_s_w_prefix);
+            const auto last_s_w_band_geo_coding = band_geocoding_map_.find(last_s_w_prefix);
+            if (first_s_w_band_geo_coding != band_geocoding_map_.end() &&
+                last_s_w_band_geo_coding != band_geocoding_map_.end()) {
+                const int first_s_w_band_height = first_s_w_band->GetRasterHeight();
+                const int last_s_w_band_width = last_s_w_band->GetRasterWidth();
+                const int last_s_w_band_height = last_s_w_band->GetRasterHeight();
 
-        const std::shared_ptr<snapengine::IGeoCoding> last_s_w_band_geo_coding = band_geocoding_map_.at(last_s_w_band);
-        const int last_s_w_band_width = last_s_w_band->GetRasterWidth();
-        const int last_s_w_band_height = last_s_w_band->GetRasterHeight();
+                const auto ul_pix = std::make_shared<snapengine::PixelPos>(0, 0);
+                const auto ll_pix = std::make_shared<snapengine::PixelPos>(0, first_s_w_band_height - 1);
+                auto ul_geo = std::make_shared<snapengine::GeoPos>();
+                auto ll_geo = std::make_shared<snapengine::GeoPos>();
+                first_s_w_band_geo_coding->second->GetGeoPos(ul_pix, ul_geo);
+                first_s_w_band_geo_coding->second->GetGeoPos(ll_pix, ll_geo);
 
-        const auto ul_pix = std::make_shared<snapengine::PixelPos>(0, 0);
-        const auto ll_pix = std::make_shared<snapengine::PixelPos>(0, first_s_w_band_height - 1);
-        auto ul_geo = std::make_shared<snapengine::GeoPos>();
-        auto ll_geo = std::make_shared<snapengine::GeoPos>();
-        first_s_w_band_geo_coding->GetGeoPos(ul_pix, ul_geo);
-        first_s_w_band_geo_coding->GetGeoPos(ll_pix, ll_geo);
+                const auto ur_pix = std::make_shared<snapengine::PixelPos>(last_s_w_band_width - 1, 0);
+                const auto lr_pix =
+                    std::make_shared<snapengine::PixelPos>(last_s_w_band_width - 1, last_s_w_band_height - 1);
+                auto ur_geo = std::make_shared<snapengine::GeoPos>();
+                auto lr_geo = std::make_shared<snapengine::GeoPos>();
+                last_s_w_band_geo_coding->second->GetGeoPos(ur_pix, ur_geo);
+                last_s_w_band_geo_coding->second->GetGeoPos(lr_pix, lr_geo);
 
-        const auto ur_pix = std::make_shared<snapengine::PixelPos>(last_s_w_band_width - 1, 0);
-        const auto lr_pix = std::make_shared<snapengine::PixelPos>(last_s_w_band_width - 1, last_s_w_band_height - 1);
-        auto ur_geo = std::make_shared<snapengine::GeoPos>();
-        auto lr_geo = std::make_shared<snapengine::GeoPos>();
-        last_s_w_band_geo_coding->GetGeoPos(ur_pix, ur_geo);
-        last_s_w_band_geo_coding->GetGeoPos(lr_pix, lr_geo);
+                const std::vector<float> lat_corners = {
+                    static_cast<float>(ul_geo->GetLat()), static_cast<float>(ur_geo->GetLat()),
+                    static_cast<float>(ll_geo->GetLat()), static_cast<float>(lr_geo->GetLat())};
+                const std::vector<float> lon_corners = {
+                    static_cast<float>(ul_geo->GetLon()), static_cast<float>(ur_geo->GetLon()),
+                    static_cast<float>(ll_geo->GetLon()), static_cast<float>(lr_geo->GetLon())};
 
-        const std::vector<float> lat_corners = {
-            static_cast<float>(ul_geo->GetLat()), static_cast<float>(ur_geo->GetLat()),
-            static_cast<float>(ll_geo->GetLat()), static_cast<float>(lr_geo->GetLat())};
-        const std::vector<float> lon_corners = {
-            static_cast<float>(ul_geo->GetLon()), static_cast<float>(ur_geo->GetLon()),
-            static_cast<float>(ll_geo->GetLon()), static_cast<float>(lr_geo->GetLon())};
+                snapengine::ReaderUtils::AddGeoCoding(product, lat_corners, lon_corners);
 
-        snapengine::ReaderUtils::AddGeoCoding(product, lat_corners, lon_corners);
+                snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::FIRST_NEAR_LAT,
+                                                           ul_geo->GetLat());
+                snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::FIRST_NEAR_LONG,
+                                                           ul_geo->GetLon());
+                snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::FIRST_FAR_LAT,
+                                                           ur_geo->GetLat());
+                snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::FIRST_FAR_LONG,
+                                                           ur_geo->GetLon());
 
-        snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::FIRST_NEAR_LAT,
-                                                   ul_geo->GetLat());
-        snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::FIRST_NEAR_LONG,
-                                                   ul_geo->GetLon());
-        snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::FIRST_FAR_LAT,
-                                                   ur_geo->GetLat());
-        snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::FIRST_FAR_LONG,
-                                                   ur_geo->GetLon());
-
-        snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::LAST_NEAR_LAT,
-                                                   ll_geo->GetLat());
-        snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::LAST_NEAR_LONG,
-                                                   ll_geo->GetLon());
-        snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::LAST_FAR_LAT,
-                                                   lr_geo->GetLat());
-        snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::LAST_FAR_LONG,
-                                                   lr_geo->GetLon());
+                snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::LAST_NEAR_LAT,
+                                                           ll_geo->GetLat());
+                snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::LAST_NEAR_LONG,
+                                                           ll_geo->GetLon());
+                snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::LAST_FAR_LAT,
+                                                           lr_geo->GetLat());
+                snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::LAST_FAR_LONG,
+                                                           lr_geo->GetLon());
+            } else {
+                LOGW << "Sentinel-1 TOPSAR prefix geocoding missing first or last subswath geocoding for "
+                     << first_s_w_prefix << " / " << last_s_w_prefix << "; " << UNTESTED_ALUS_WARNING;
+            }
+        } else {
+            LOGW << "Sentinel-1 TOPSAR prefix geocoding skipped because first or last subswath band was not found; "
+                 << UNTESTED_ALUS_WARNING;
+        }
 
         std::vector<std::shared_ptr<snapengine::Band>> bands = product->GetBands();
-        for (const auto& band : bands) {
-            try {
-                band->SetGeoCoding(band_geocoding_map_.at(band));
-            } catch (const std::out_of_range& e) {
-                band->SetGeoCoding(nullptr);
+        for (const auto& band_geocoding : band_geocoding_map_) {
+            for (const auto& band : bands) {
+                if (band->GetName().find(band_geocoding.first) != std::string::npos) {
+                    band->SetGeoCoding(band_geocoding.second);
+                }
             }
         }
     } else {
+        LOGW << "Sentinel-1 annotation-only geocoding fallback used; " << UNTESTED_ALUS_WARNING;
         try {
             const std::string annot_folder = GetRootFolder() + "annotation";
             const std::vector<std::string> filenames = ListFiles(annot_folder);
@@ -659,9 +701,24 @@ void Sentinel1Level1Directory::AddAbstractedMetadataHeader(const std::shared_ptr
 
 std::shared_ptr<snapengine::MetadataElement> Sentinel1Level1Directory::FindElement(
     const std::shared_ptr<snapengine::MetadataElement>& elem, std::string_view name) {
+    if (!elem) {
+        return nullptr;
+    }
+
     const std::shared_ptr<snapengine::MetadataElement> metadata_wrap = elem->GetElement("metadataWrap");
-    const std::shared_ptr<snapengine::MetadataElement> xml_data = metadata_wrap->GetElement("xmlData");
-    return xml_data->GetElement(name);
+    if (metadata_wrap) {
+        const std::shared_ptr<snapengine::MetadataElement> xml_data = metadata_wrap->GetElement("xmlData");
+        if (xml_data) {
+            return xml_data->GetElement(name);
+        }
+    }
+
+    const std::shared_ptr<snapengine::MetadataElement> xml_data = elem->GetElement("xmlData");
+    if (xml_data) {
+        return xml_data->GetElement(name);
+    }
+
+    return nullptr;
 }
 void Sentinel1Level1Directory::AddManifestMetadata(std::string_view product_name,
                                                    const std::shared_ptr<snapengine::MetadataElement>& abs_root,
@@ -749,26 +806,56 @@ void Sentinel1Level1Directory::AddManifestMetadata(std::string_view product_name
         } else if (id == "measurementOrbitReference") {
             const std::shared_ptr<snapengine::MetadataElement> orbit_reference =
                 FindElement(metadata_object, "orbitReference");
-            const std::shared_ptr<snapengine::MetadataElement> orbit_number =
-                FindElementContaining(orbit_reference, "OrbitNumber", "type", "start");
-            const std::shared_ptr<snapengine::MetadataElement> relative_orbit_number =
-                FindElementContaining(orbit_reference, "relativeOrbitNumber", "type", "start");
-            snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::ABS_ORBIT,
-                                                       orbit_number->GetAttributeInt("orbitNumber", def_int));
-            snapengine::AbstractMetadata::SetAttribute(
-                abs_root, snapengine::AbstractMetadata::REL_ORBIT,
-                relative_orbit_number->GetAttributeInt("relativeOrbitNumber", def_int));
-            snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::CYCLE,
-                                                       orbit_reference->GetAttributeInt("cycleNumber", def_int));
+            if (orbit_reference) {
+                const std::shared_ptr<snapengine::MetadataElement> orbit_number =
+                    FindElementContaining(orbit_reference, "OrbitNumber", "type", "start");
+                if (orbit_number) {
+                    snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::ABS_ORBIT,
+                                                               orbit_number->GetAttributeInt("orbitNumber", def_int));
+                } else {
+                    LOGW << "Sentinel-1 SAFE manifest measurementOrbitReference missing start OrbitNumber; "
+                         << UNTESTED_ALUS_WARNING;
+                }
 
-            std::string pass = orbit_reference->GetAttributeString("pass", def_str);
-            if (pass == def_str) {
-                const std::shared_ptr<snapengine::MetadataElement> extension = orbit_reference->GetElement("extension");
-                const std::shared_ptr<snapengine::MetadataElement> orbit_properties =
-                    extension->GetElement("orbitProperties");
-                pass = orbit_properties->GetAttributeString("pass", def_str);
+                const std::shared_ptr<snapengine::MetadataElement> relative_orbit_number =
+                    FindElementContaining(orbit_reference, "relativeOrbitNumber", "type", "start");
+                if (relative_orbit_number) {
+                    snapengine::AbstractMetadata::SetAttribute(
+                        abs_root, snapengine::AbstractMetadata::REL_ORBIT,
+                        relative_orbit_number->GetAttributeInt("relativeOrbitNumber", def_int));
+                } else {
+                    LOGW << "Sentinel-1 SAFE manifest measurementOrbitReference missing start relativeOrbitNumber; "
+                         << UNTESTED_ALUS_WARNING;
+                }
+
+                snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::CYCLE,
+                                                           orbit_reference->GetAttributeInt("cycleNumber", def_int));
+
+                std::string pass = orbit_reference->GetAttributeString("pass", def_str);
+                if (pass == def_str) {
+                    const std::shared_ptr<snapengine::MetadataElement> extension =
+                        orbit_reference->GetElement("extension");
+                    if (extension) {
+                        const std::shared_ptr<snapengine::MetadataElement> orbit_properties =
+                            extension->GetElement("orbitProperties");
+                        if (orbit_properties) {
+                            pass = orbit_properties->GetAttributeString("pass", def_str);
+                        } else {
+                            LOGW << "Sentinel-1 SAFE manifest measurementOrbitReference extension missing "
+                                    "orbitProperties; "
+                                 << UNTESTED_ALUS_WARNING;
+                        }
+                    } else {
+                        LOGW << "Sentinel-1 SAFE manifest measurementOrbitReference missing extension for pass "
+                                "fallback; "
+                             << UNTESTED_ALUS_WARNING;
+                    }
+                }
+                snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::PASS, pass);
+            } else {
+                LOGW << "Sentinel-1 SAFE manifest missing measurementOrbitReference orbitReference; "
+                     << UNTESTED_ALUS_WARNING;
             }
-            snapengine::AbstractMetadata::SetAttribute(abs_root, snapengine::AbstractMetadata::PASS, pass);
         } else if (id == "generalProductInformation") {
             std::shared_ptr<snapengine::MetadataElement> general_product_information =
                 FindElement(metadata_object, "generalProductInformation");
@@ -800,6 +887,10 @@ void Sentinel1Level1Directory::AddManifestMetadata(std::string_view product_name
 std::shared_ptr<snapengine::MetadataElement> Sentinel1Level1Directory::FindElementContaining(
     const std::shared_ptr<snapengine::MetadataElement>& parent, std::string_view elem_name,
     std::string_view attrib_name, std::string_view att_value) {
+    if (!parent) {
+        return nullptr;
+    }
+
     const std::vector<std::shared_ptr<snapengine::MetadataElement>> elems = parent->GetElements();
     for (const auto& elem : elems) {
         if (boost::algorithm::iequals(elem->GetName(), elem_name) && elem->ContainsAttribute(attrib_name)) {
