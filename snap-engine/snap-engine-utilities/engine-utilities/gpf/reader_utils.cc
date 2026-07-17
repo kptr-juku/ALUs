@@ -118,16 +118,14 @@ void ReaderUtils::AddGeoCoding(const std::shared_ptr<Product>& product, const st
         return;
     }
 
-    const int grid_width = 10;
-    const int grid_height = 10;
+    const int grid_width = std::min(10, std::max(2, product->GetSceneRasterWidth()));
+    const int grid_height = std::min(10, std::max(2, product->GetSceneRasterHeight()));
 
-    const std::vector<float> fine_lat_tie_points(static_cast<size_t>((grid_width * grid_height)));
+    std::vector<float> fine_lat_tie_points(static_cast<size_t>((grid_width * grid_height)));
     ReaderUtils::CreateFineTiePointGrid(2, 2, grid_width, grid_height, lat_corners, fine_lat_tie_points);
 
-    double sub_sampling_x = product->GetSceneRasterWidth() /  // NOLINT
-                            (grid_width - 1);  // NOLINT TODO: is loss of precision here intended? Seems a bit shady
-    double sub_sampling_y =
-        product->GetSceneRasterHeight() / (grid_height - 1);  // NOLINT TODO: same loss of precision is here...
+    double sub_sampling_x = static_cast<double>(product->GetSceneRasterWidth()) / (grid_width - 1);
+    double sub_sampling_y = static_cast<double>(product->GetSceneRasterHeight()) / (grid_height - 1);
     if (sub_sampling_x == 0 || sub_sampling_y == 0) return;
 
     const auto lat_grid = std::make_shared<TiePointGrid>(OperatorUtils::TPG_LATITUDE, grid_width, grid_height, 0.5F,
@@ -150,8 +148,8 @@ void ReaderUtils::AddGeoCoding(const std::shared_ptr<Product>& product, const st
 }
 
 void ReaderUtils::CreateFineTiePointGrid(int coarse_grid_width, int coarse_grid_height, int fine_grid_width,
-                                         int fine_grid_height, std::vector<float> coarse_tie_points,
-                                         std::vector<float> fine_tie_points) {
+                                         int fine_grid_height, const std::vector<float>& coarse_tie_points,
+                                         std::vector<float>& fine_tie_points) {
     if (coarse_tie_points.empty() || coarse_tie_points.size() != static_cast<std::size_t>(coarse_grid_width) *
                                                                      static_cast<size_t>(coarse_grid_height)) {
         throw std::invalid_argument(

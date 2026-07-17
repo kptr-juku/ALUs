@@ -93,6 +93,17 @@ Annotation-only products are not an ALUs target because ALUs is intended to acce
 
 The STEP forum report [Geolocation inaccuracy](https://forum.step.esa.int/t/geolocation-inaccuracy/37504) concerns Range-Doppler terrain correction output shifts that vary with TOPSAR subset size. It is not attributed here to `ReaderUtils::CreateFineTiePointGrid()` alone. However, ALUs `ReaderUtils::CreateFineTiePointGrid()` previously took its output vector by value, making `ReaderUtils::AddGeoCoding()` generate zero-filled product latitude/longitude tie-point grids. Since ALUs Range-Doppler terrain correction can consume product latitude/longitude tie-point grids, this helper is retained in the sync queue and fixed rather than discarded.
 
+## Rolling Sync Status
+
+| Order | Sync item | Upstream reference | Current status |
+|---|---|---|---|
+| 1 | Harden SAFE manifest parsing | `d8cd6bb39`, `73e10e98b` | Submitted in ALUs `c8112e0b`; localized parser guards support wrapped/direct `xmlData` and optional orbit metadata |
+| 2 | Add annotation/dimension robustness | `a8dd51abe` | Partial by design: invalid TPG dimension guard submitted; annotation-only dimension fallback explicitly not implemented because measurement-free products are outside ALUs scope |
+| 3 | Fix IW tie-point/geocoding robustness | `d8353246c`, `f08897475`, SNAP Engine `057211babf`, `904e622ac0`, `117bd71c68` | Submitted across ALUs `c8112e0b` and `2a4a67a5`; includes antimeridian handling, IW prefix geocoding, fine-grid output-vector fix, grid-size guards, and double subsampling |
+| 4 | Improve noise/calibration LUT parsing tolerance | Upstream behavior comparison pending | Next: support `noiseLut` and `noiseRangeLut`, and parse tab/general whitespace delimiters without changing TNR/calibration formulas |
+| 5 | Optional folder listing behavior | `a3ad964c1` | Deferred: do not globally suppress listing failures; implement only for a concrete optional IW metadata folder requirement |
+| 6 | UTC MJD rounding | `ddf5a79cfc` | Pending as a narrow utility fix with a focused regression test; no broad time/datamodel rewrite |
+
 ## Stepwise Review Plan
 
 | Step | Output |

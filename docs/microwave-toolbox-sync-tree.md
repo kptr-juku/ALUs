@@ -189,6 +189,17 @@ When a component is reviewed, use the following fields to make the result action
 
 The queue is ordered by dependency, not by final algorithm importance. Foundational product reading and metadata support should be reviewed before operator math, because calibration, thermal noise removal, terrain correction, backgeocoding, and coherence all depend on the same parsed SAFE metadata and product model.
 
+### Rolling Implementation Status
+
+| Order | Proposed sync | Status | ALUs evidence / next action |
+|---|---|---|---|
+| 1 | Harden SAFE manifest parsing (`d8cd6bb39`, `73e10e98b`) | Submitted | `c8112e0b`; wrapped/direct `xmlData` support and guarded optional orbit metadata |
+| 2 | Add annotation/dimension robustness (`a8dd51abe`) | Partial by design | Invalid TPG dimension guard submitted; annotation-only dimension fallback explicitly not implemented because ALUs requires measurement data |
+| 3 | Fix IW tie-point/geocoding robustness (`d8353246c`, `f08897475`, `057211babf`, `904e622ac0`, `117bd71c68`) | Submitted | `c8112e0b`, `2a4a67a5`; antimeridian, IW prefix geocoding, fine-grid output, grid-size, and double-subsampling fixes |
+| 4 | Improve noise/calibration LUT parsing tolerance | Next | Review `thermal_noise_utils.cc` and `sentinel1_utils.cc`; support `noiseLut`/`noiseRangeLut` and general whitespace without formula changes |
+| 5 | Optional folder listing behavior (`a3ad964c1`) | Deferred | Keep listing failures explicit unless a concrete optional IW metadata folder requires a separate optional-listing path |
+| 6 | UTC MJD rounding (`ddf5a79cfc`) | Pending | Port only the narrow rounding fix and add a focused boundary regression test |
+
 | Order | Component | Reason |
 |---|---|---|
 | 1 | Foundational SAFE/product support | Review `snap-engine`, SAR reader abstractions, metadata constants, product model assumptions, and SAFE format handling needed by all SAR-based operations before touching algorithm-specific logic |
