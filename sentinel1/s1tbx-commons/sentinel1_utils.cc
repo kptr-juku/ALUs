@@ -17,12 +17,13 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <sstream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 
 #include <s1tbx-commons/s_a_r_geocoding.h>
 #include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/tokenizer.hpp>
 #include <utility>
 
@@ -36,6 +37,28 @@
 #include "snap-engine-utilities/engine-utilities/eo/constants.h"
 
 namespace alus::s1tbx {
+namespace {
+
+template <typename T>
+void AddWhitespaceSeparatedValuesImpl(std::vector<T>& values, std::string_view text) {
+    std::istringstream stream{std::string{text}};
+    T value;
+    while (stream >> value) {
+        values.push_back(value);
+    }
+    if (!stream.eof()) {
+        throw std::invalid_argument("Invalid value in whitespace-separated metadata array");
+    }
+}
+
+void ValidateMetadataCount(std::string_view field, int declared_count, std::size_t parsed_count) {
+    if (declared_count < 0 || parsed_count != static_cast<std::size_t>(declared_count)) {
+        throw std::runtime_error(std::string(field) + " metadata count is " + std::to_string(declared_count) +
+                                 ", but " + std::to_string(parsed_count) + " values were parsed");
+    }
+}
+
+}  // namespace
 
 Sentinel1Utils::Sentinel1Utils(std::string_view metadata_file_name) : num_of_sub_swath_(1) {
     metadata_reader_ = std::make_unique<snapengine::PugixmlMetaDataReader>(metadata_file_name);
@@ -827,15 +850,6 @@ std::shared_ptr<snapengine::Utc> Sentinel1Utils::GetTime(const std::shared_ptr<s
     return snapengine::Utc::Parse(start, "%Y-%m-%dT%H:%M:%S");
 }
 
-template <typename T>
-void AddToVector(std::vector<T>& vector, std::string_view csv_string, std::string_view delim) {
-    std::vector<std::string> tokens;
-    boost::split(tokens, csv_string, boost::is_any_of(delim));
-    for (auto&& token : tokens) {
-        vector.push_back(boost::lexical_cast<T>(token));
-    }
-}
-
 std::vector<CalibrationVector> Sentinel1Utils::GetCalibrationVectors(
     const std::shared_ptr<snapengine::MetadataElement>& calibration_vector_list_element, bool output_sigma_band,
     bool output_beta_band, bool output_gamma_band, bool output_dn_band) {
@@ -879,15 +893,19 @@ std::vector<CalibrationVector> Sentinel1Utils::GetCalibrationVectors(
         const auto count = pixel_element->GetAttributeInt(snapengine::AbstractMetadata::COUNT);
 
         std::vector<int> pixels;
-        pixels.reserve(count);
-        AddToVector(pixels, pixel_string, " ");
+        AddWhitespaceSeparatedValues(pixels, pixel_string);
+        ValidateMetadataCount(snapengine::AbstractMetadata::PIXEL, count, pixels.size());
 
         auto fetch_unit_data = [&](std::string_view selected_type) {
             auto& unit_vector = unit_data.at(selected_type);
-            unit_vector.reserve(count);
             const auto unit_element = get_element(calibration_vector_element, selected_type);
+            const auto unit_count = unit_element->GetAttributeInt(snapengine::AbstractMetadata::COUNT);
             const auto unit_string = unit_element->GetAttributeString(selected_type);
-            AddToVector(unit_vector, unit_string, " ");
+            AddWhitespaceSeparatedValues(unit_vector, unit_string);
+            ValidateMetadataCount(selected_type, unit_count, unit_vector.size());
+            if (unit_count != count) {
+                throw std::runtime_error(std::string(selected_type) + " metadata count does not match pixel count");
+            }
         };
 
         for (auto&& unit : selected_bands) {
@@ -1146,16 +1164,26 @@ int Sentinel1Utils::AddToArray(std::vector<float>& array, int index, std::string
     }
     return index;
 }
+
+void Sentinel1Utils::AddWhitespaceSeparatedValues(std::vector<int>& values, std::string_view text) {
+    AddWhitespaceSeparatedValuesImpl(values, text);
+}
+
+void Sentinel1Utils::AddWhitespaceSeparatedValues(std::vector<float>& values, std::string_view text) {
+    AddWhitespaceSeparatedValuesImpl(values, text);
+}
+
 std::vector<float> Sentinel1Utils::GetCalibrationVector(int sub_swath_index, std::string_view polarization,
-                                                        int vector_index, std::string_view vector_name) {
+                                                         int vector_index, std::string_view vector_name) {
     std::shared_ptr<snapengine::MetadataElement> calibration_vector_list_elem =
         GetCalibrationVectorList(sub_swath_index, polarization);
     std::vector<std::shared_ptr<snapengine::MetadataElement>> list = calibration_vector_list_elem->GetElements();
     std::shared_ptr<snapengine::MetadataElement> vector_elem = list.at(vector_index)->GetElement(vector_name);
     std::string vector_str = vector_elem->GetAttributeString(vector_name);
     int count = std::stoi(vector_elem->GetAttributeString("count"));
-    std::vector<float> vector_array(count);
-    AddToArray(vector_array, 0, vector_str, " ");
+    std::vector<float> vector_array;
+    AddWhitespaceSeparatedValues(vector_array, vector_str);
+    ValidateMetadataCount(vector_name, count, vector_array.size());
     return vector_array;
 }
 
@@ -1168,8 +1196,9 @@ std::vector<int> Sentinel1Utils::GetCalibrationPixel(int sub_swath_index, std::s
     std::string pixel = pixel_elem->GetAttributeString("pixel");
     // todo:check if stoi is enough (also might need specific size type)
     int count = std::stoi(pixel_elem->GetAttributeString("count"));
-    std::vector<int> pixel_array(count);
-    AddToArray(pixel_array, 0, pixel, " ");
+    std::vector<int> pixel_array;
+    AddWhitespaceSeparatedValues(pixel_array, pixel);
+    ValidateMetadataCount(snapengine::AbstractMetadata::PIXEL, count, pixel_array.size());
     return pixel_array;
 }
 

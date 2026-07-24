@@ -31,6 +31,19 @@
 #include "time_maps.h"
 
 namespace alus::tnr {
+namespace {
+
+// IPF 2.9.0 introduced noiseRangeLut; older SAFE products store the same values under noiseLut.
+constexpr std::string_view LEGACY_NOISE_LUT{"noiseLut"};
+
+void ValidateMetadataCount(std::string_view field, int declared_count, std::size_t parsed_count) {
+    if (declared_count < 0 || parsed_count != static_cast<std::size_t>(declared_count)) {
+        throw std::runtime_error(std::string(field) + " metadata count is " + std::to_string(declared_count) +
+                                 ", but " + std::to_string(parsed_count) + " values were parsed");
+    }
+}
+
+}  // namespace
 
 ThermalNoiseInfo GetThermalNoiseInfoForBursts(
     std::string_view polarisation, std::string_view sub_swath,
@@ -134,20 +147,23 @@ std::vector<s1tbx::NoiseAzimuthVector> GetAzimuthNoiseVectorList(
     for (const auto& noise_vector_element : elements_list) {
         const auto line_element = noise_vector_element->GetElement(snapengine::AbstractMetadata::LINE);
         const auto line_attribute = line_element->GetAttributeString(snapengine::AbstractMetadata::LINE);
-        const auto line_count = line_element->GetAttributeString(snapengine::AbstractMetadata::COUNT);
-
-        const auto count = std::stoi(line_count);
-        std::vector<int> line_vector(count);
-
-        const std::string delimiter = boost::icontains(line_attribute, "\t") ? "\t" : " ";
-        s1tbx::Sentinel1Utils::AddToArray(line_vector, 0, line_attribute, delimiter);
+        const auto count = line_element->GetAttributeInt(snapengine::AbstractMetadata::COUNT);
+        std::vector<int> line_vector;
+        s1tbx::Sentinel1Utils::AddWhitespaceSeparatedValues(line_vector, line_attribute);
+        ValidateMetadataCount(snapengine::AbstractMetadata::LINE, count, line_vector.size());
 
         const auto noise_lut_element =
             noise_vector_element->GetElement(snapengine::AbstractMetadata::NOISE_AZIMUTH_LUT);
         const auto noise_lut_attribute =
             noise_lut_element->GetAttributeString(snapengine::AbstractMetadata::NOISE_AZIMUTH_LUT);
-        std::vector<float> noise_lut_vector(count);
-        s1tbx::Sentinel1Utils::AddToArray(noise_lut_vector, 0, noise_lut_attribute, delimiter);
+        const auto noise_lut_count = noise_lut_element->GetAttributeInt(snapengine::AbstractMetadata::COUNT);
+        std::vector<float> noise_lut_vector;
+        s1tbx::Sentinel1Utils::AddWhitespaceSeparatedValues(noise_lut_vector, noise_lut_attribute);
+        ValidateMetadataCount(snapengine::AbstractMetadata::NOISE_AZIMUTH_LUT, noise_lut_count,
+                              noise_lut_vector.size());
+        if (noise_lut_count != count) {
+            throw std::runtime_error("noiseAzimuthLut metadata count does not match line count");
+        }
 
         const auto swath = noise_vector_element->ContainsAttribute(snapengine::AbstractMetadata::SWATH)
                                ? noise_vector_element->GetAttributeString(snapengine::AbstractMetadata::SWATH)
@@ -189,15 +205,36 @@ std::vector<s1tbx::NoiseVector> GetNoiseVectorList(
 
         const auto pixel_element = noise_vector_element->GetElement(snapengine::AbstractMetadata::PIXEL);
         const auto pixel_attribute = pixel_element->GetAttributeString(snapengine::AbstractMetadata::PIXEL);
-        const auto count = std::stoi(pixel_element->GetAttributeString(snapengine::AbstractMetadata::COUNT));
-        std::vector<int> pixel_vector(count);
-        s1tbx::Sentinel1Utils::AddToArray(pixel_vector, 0, pixel_attribute, " ");
+        const auto count = pixel_element->GetAttributeInt(snapengine::AbstractMetadata::COUNT);
+        std::vector<int> pixel_vector;
+        s1tbx::Sentinel1Utils::AddWhitespaceSeparatedValues(pixel_vector, pixel_attribute);
+        ValidateMetadataCount(snapengine::AbstractMetadata::PIXEL, count, pixel_vector.size());
 
-        const auto noise_lut_element = noise_vector_element->GetElement(snapengine::AbstractMetadata::NOISE_RANGE_LUT);
-        const auto noise_lut_attribute =
-            noise_lut_element->GetAttributeString(snapengine::AbstractMetadata::NOISE_RANGE_LUT);
-        std::vector<float> noise_lut_vector(count);
-        s1tbx::Sentinel1Utils::AddToArray(noise_lut_vector, 0, noise_lut_attribute, " ");
+        auto noise_lut_element = noise_vector_element->GetElement(LEGACY_NOISE_LUT);
+        if (!noise_lut_element) {
+            noise_lut_element = noise_vector_element->GetElement(snapengine::AbstractMetadata::NOISE_RANGE_LUT);
+        }
+        if (!noise_lut_element) {
+            throw std::runtime_error("Noise vector is missing noiseLut/noiseRangeLut metadata element");
+        }
+
+        std::string noise_lut_attribute;
+        if (noise_lut_element->ContainsAttribute(LEGACY_NOISE_LUT)) {
+            noise_lut_attribute = noise_lut_element->GetAttributeString(LEGACY_NOISE_LUT);
+        } else if (noise_lut_element->ContainsAttribute(snapengine::AbstractMetadata::NOISE_RANGE_LUT)) {
+            noise_lut_attribute =
+                noise_lut_element->GetAttributeString(snapengine::AbstractMetadata::NOISE_RANGE_LUT);
+        } else {
+            throw std::runtime_error("Noise LUT element is missing noiseLut/noiseRangeLut metadata attribute");
+        }
+
+        const auto noise_lut_count = noise_lut_element->GetAttributeInt(snapengine::AbstractMetadata::COUNT);
+        std::vector<float> noise_lut_vector;
+        s1tbx::Sentinel1Utils::AddWhitespaceSeparatedValues(noise_lut_vector, noise_lut_attribute);
+        ValidateMetadataCount(noise_lut_element->GetName(), noise_lut_count, noise_lut_vector.size());
+        if (noise_lut_count != count) {
+            throw std::runtime_error("Noise LUT metadata count does not match pixel count");
+        }
 
         noise_vector_list.push_back({time, line, pixel_vector, noise_lut_vector});
     }

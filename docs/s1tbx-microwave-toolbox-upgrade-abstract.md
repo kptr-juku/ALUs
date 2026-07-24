@@ -100,7 +100,7 @@ The STEP forum report [Geolocation inaccuracy](https://forum.step.esa.int/t/geol
 | 1 | Harden SAFE manifest parsing | `d8cd6bb39`, `73e10e98b` | Submitted in ALUs `c8112e0b`; localized parser guards support wrapped/direct `xmlData` and optional orbit metadata |
 | 2 | Add annotation/dimension robustness | `a8dd51abe` | Partial by design: invalid TPG dimension guard submitted; annotation-only dimension fallback explicitly not implemented because measurement-free products are outside ALUs scope |
 | 3 | Fix IW tie-point/geocoding robustness | `d8353246c`, `f08897475`, SNAP Engine `057211babf`, `904e622ac0`, `117bd71c68` | Submitted across ALUs `c8112e0b` and `2a4a67a5`; includes antimeridian handling, IW prefix geocoding, fine-grid output-vector fix, grid-size guards, and double subsampling |
-| 4 | Improve noise/calibration LUT parsing tolerance | Upstream behavior comparison pending | Next: support `noiseLut` and `noiseRangeLut`, and parse tab/general whitespace delimiters without changing TNR/calibration formulas |
+| 4 | Improve noise/calibration LUT parsing tolerance | `860a618515`, `e048ff875` | Implemented and verified: accepts `noiseLut`/`noiseRangeLut`, parses general ASCII whitespace, and validates declared and aligned LUT counts without changing TNR/calibration formulas or range-vector selection |
 | 5 | Optional folder listing behavior | `a3ad964c1` | Deferred: do not globally suppress listing failures; implement only for a concrete optional IW metadata folder requirement |
 | 6 | UTC MJD rounding | `ddf5a79cfc` | Pending as a narrow utility fix with a focused regression test; no broad time/datamodel rewrite |
 
