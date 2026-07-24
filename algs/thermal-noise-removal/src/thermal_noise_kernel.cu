@@ -52,6 +52,9 @@ __device__ inline double Interpolate(int x_1, int x_2, double y_1, double y_2, i
  * @return Index of the sample in a noise vector.
  */
 __device__ inline size_t GetSampleIndex(int sample, s1tbx::DeviceNoiseVector noise_vector) {
+    if (noise_vector.pixels.size < 2) {
+        return 0;
+    }
     for (size_t i = 0; i < noise_vector.pixels.size; i++) {
         if (sample < noise_vector.pixels.array[i]) {
             return (i > 0) ? i - 1 : 0;
@@ -72,11 +75,12 @@ __device__ inline size_t GetSampleIndex(int sample, s1tbx::DeviceNoiseVector noi
  */
 __global__ void InterpolateNoiseAzimuthVectorSingleLine(s1tbx::DeviceNoiseAzimuthVector noise_azimuth_vector,
                                                         int first_azimuth_line,
-                                                        cuda::KernelArray<double> interpolated_vector,
-                                                        cuda::LaunchConfig1D config) {
+                                                         cuda::KernelArray<double> interpolated_vector,
+                                                         cuda::LaunchConfig1D config) {
     for (auto line : cuda::GpuGridRangeX(config.virtual_thread_count)) {
-        interpolated_vector.array[line - first_azimuth_line] = noise_azimuth_vector.noise_azimuth_lut.array[0];
+        interpolated_vector.array[line] = noise_azimuth_vector.noise_azimuth_lut.array[0];
     }
+    (void)first_azimuth_line;
 }
 
 /**
@@ -147,6 +151,10 @@ __global__ void InterpolateNoiseRangeVectorKernel(
         const auto noise_range_vector = burst_index_to_range_vector_map.array[burst_indices.array[index]];
         auto interpolated_vector = burst_index_to_interpolated_vector.array[burst_indices.array[index]];
         for (const auto i : cuda::GpuGridRangeX(launch_config.virtual_thread_count.x)) {
+            if (noise_range_vector.pixels.size < 2) {
+                interpolated_vector.array[i] = noise_range_vector.noise_lut.array[0];
+                continue;
+            }
             const auto sample = i + first_range_sample;
             while (sample_index < noise_range_vector.pixels.size - 2 &&
                    static_cast<int>(sample) > noise_range_vector.pixels.array[sample_index + 1]) {

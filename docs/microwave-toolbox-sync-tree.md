@@ -84,13 +84,13 @@ Current status: partially synced for selected IW SAFE Level-1 reader fixes only.
 | `12db283e1` `SNAP-3750 ensure case for CDSE product` | `sentinel1_level1_directory.cc` | Lower-case image-to-band metadata lookup | IW SAFE relevant |
 | `d8cd6bb39` `refactor SafeManifest` | `FindElement()` / manifest parsing | Support `metadataWrap/xmlData` and direct `xmlData` | Manifest hardening only |
 | `73e10e98b` `S1TBX-868 new Spacety format` | `AddManifestMetadata()` | Guard optional orbit metadata nodes | Runtime warnings added where guarded paths are used |
-| `d8353246c` `[S1TBX-647] Modified S-1 reader to handle image crossing anti-meridian` | `AddTiePointGrids()` | Normalize negative longitudes when crossing the antimeridian | Functional geolocation change; runtime warning added because ALUs output correctness is not yet validated |
+| `d8353246c` `[S1TBX-647] Modified S-1 reader to handle image crossing anti-meridian` | `AddTiePointGrids()` | Normalize negative longitudes when crossing the antimeridian | Functional geolocation change; further AOI/antimeridian validation is outside the current input scope |
 | `a8dd51abe` `SNAP-4185 use ProductCache for netcdf readers` | `AddTiePointGrids()` | Guard invalid raster/grid dimensions before subsampling | ProductCache behavior and annotation-only dimension fallback not ported |
 | `f08897475` `fix prefix` | `AddTiePointGrids()` / `AddGeoCoding()` | Store and apply geocoding by TOPSAR prefix for IW bands | IW subset only; WV-specific behavior not claimed |
 | `4adf88da0` `handle RCM sim RV RH products` | `image_i_o_file.*` | Close underlying image reader instead of throwing | Reader lifecycle behavior |
 | `057211babf` `S1TBX-758 use min of product dimensions or 10 for the TPG grid`, `904e622ac0` `avoid 1 pixel grid`, `117bd71c68` `S1TBX-895 subsampling as double` | `ReaderUtils::AddGeoCoding()` / `CreateFineTiePointGrid()` | Clamp generated TPG dimensions, compute subsampling as double, and fix ALUs C++ output-vector pass-by-value bug | Relevant to product-level TPGs consumed by Range-Doppler terrain correction |
 
-Annotation-only dimension fallback from upstream is explicitly not implemented because ALUs targets computation on products with measurement data. Deferred reader items: full current `Sentinel1ProductReader` behavior, ProductCache and stream-cache architecture, full SAFE folder/zip qualification drift, RFI metadata, range-window metadata, and non-IW product-family support unless required by benchmark inputs.
+Annotation-only dimension fallback from upstream is explicitly not implemented because ALUs targets computation on products with measurement data. Lower-priority reader items are limited to IW-relevant current `Sentinel1ProductReader` behavior, ProductCache and stream-cache architecture, SAFE folder/zip qualification drift, RFI metadata, and range-window metadata. The scope remains IW-only, with ETAD handled separately as the immediate next topic.
 
 ### Orbit Application
 
@@ -110,6 +110,8 @@ Annotation-only dimension fallback from upstream is explicitly not implemented b
 | `algs/sentinel1-calibrate/include/calibration_info_computation.h` | Calibration LUT interpolation logic | Calibration LUT interpolation logic | GPU representation of per-line/per-pixel LUT behavior |
 | `algs/sentinel1-calibrate/src/sentinel1_calibrate_kernel*.cu` | `Sentinel1Calibrator.applyCalibration` equivalent | `Sentinel1Calibrator.applyCalibration` equivalent | Numerical formula, DN/sigma/beta/gamma behavior, floor/no-data behavior |
 
+Current status: calibration/noise vector parsing compatibility is implemented in `a98cb7af`. The numerical calibration behavior has been reviewed for current IW inputs and manually accepted; no additional calibration formula changes are currently required.
+
 ### Thermal Noise Removal
 
 | ALUs path | Legacy S1TBX source | Current Microwave Toolbox source | Review focus |
@@ -119,6 +121,8 @@ Annotation-only dimension fallback from upstream is explicitly not implemented b
 | `algs/thermal-noise-removal/include/thermal_noise_utils.h` | `Sentinel1RemoveThermalNoiseOp` helper methods | `Sentinel1RemoveThermalNoiseOp` helper methods | Noise vector selection, T0/deltaTS maps, burst/range vector mapping |
 | `algs/thermal-noise-removal/src/thermal_noise_utils.cc` | Noise LUT construction methods | Noise LUT construction methods | TOPS SLC/GRD noise LUT building and interpolation behavior |
 | `algs/thermal-noise-removal/src/thermal_noise_kernel*.cu` | `computeTile*` / noise matrix application | `computeTile*` / noise matrix application | GPU numerical behavior, negative output handling, complex/amplitude behavior |
+
+Current status: core IW parsing, GRD range-vector fallback, azimuth-time interpolation, TOPS SLC subset/burst alignment, and one-value LUT behavior are implemented. S1D output is covered by `build-automation/estonia-2026-S1D-calibration.sh` and has been manually accepted. Later SNAP-4160 clipping, zero-noise/noise-band, and NaN policies remain lower-priority optional parity work.
 
 ### Backgeocoding
 
@@ -160,6 +164,8 @@ Annotation-only dimension fallback from upstream is explicitly not implemented b
 | `algs/range-doppler-terrain-correction/include/get_position.*` | SAR geocoding / orbit helpers | SAR geocoding / orbit helpers | Zero-Doppler positioning and slant-range calculations |
 | `algs/range-doppler-terrain-correction/include/srgr_coefficients.h` | SRGR coefficient metadata handling | SRGR coefficient metadata handling | GRD range conversion behavior |
 
+Current status: generated tie-point-grid guards, double subsampling, and the C++ fine-grid output-vector defect are fixed. Current products produce good results without a known regression, so broader Range-Doppler geolocation, DEM/default, boundary, mask, and sea no-data parity is lower priority.
+
 ### SNAP Engine Support Layer
 
 | ALUs path | Upstream source | Review focus |
@@ -187,7 +193,7 @@ When a component is reviewed, use the following fields to make the result action
 
 ## Sync Review Queue
 
-The queue is ordered by dependency, not by final algorithm importance. Foundational product reading and metadata support should be reviewed before operator math, because calibration, thermal noise removal, terrain correction, backgeocoding, and coherence all depend on the same parsed SAFE metadata and product model.
+The queue now records explicit priority. ETAD-assisted IW processing is next, burst-based IW processing follows it, and the final benchmark/JRC.D5 decision matrix comes last. Existing completed and lower-priority items remain for traceability.
 
 ### Rolling Implementation Status
 
@@ -195,24 +201,28 @@ The queue is ordered by dependency, not by final algorithm importance. Foundatio
 |---|---|---|---|
 | 1 | Harden SAFE manifest parsing (`d8cd6bb39`, `73e10e98b`) | Submitted | `c8112e0b`; wrapped/direct `xmlData` support and guarded optional orbit metadata |
 | 2 | Add annotation/dimension robustness (`a8dd51abe`) | Partial by design | Invalid TPG dimension guard submitted; annotation-only dimension fallback explicitly not implemented because ALUs requires measurement data |
-| 3 | Fix IW tie-point/geocoding robustness (`d8353246c`, `f08897475`, `057211babf`, `904e622ac0`, `117bd71c68`) | Submitted | `c8112e0b`, `2a4a67a5`; antimeridian, IW prefix geocoding, fine-grid output, grid-size, and double-subsampling fixes |
-| 4 | Improve noise/calibration LUT parsing tolerance (`860a618515`, `e048ff875`) | Implemented | `thermal_noise_utils.cc` and `sentinel1_utils.cc` accept `noiseLut`/`noiseRangeLut`, parse general ASCII whitespace, and validate declared/aligned counts; all thermal-noise unit tests pass without formula or range-vector-selection changes |
-| 5 | Optional folder listing behavior (`a3ad964c1`) | Deferred | Keep listing failures explicit unless a concrete optional IW metadata folder requires a separate optional-listing path |
-| 6 | UTC MJD rounding (`ddf5a79cfc`) | Pending | Port only the narrow rounding fix and add a focused boundary regression test |
+| 3 | Fix IW tie-point/geocoding robustness (`d8353246c`, `f08897475`, `057211babf`, `904e622ac0`, `117bd71c68`) | Submitted | `c8112e0b`, `972ed881`; antimeridian, IW prefix geocoding, fine-grid output, grid-size, and double-subsampling fixes |
+| 4 | Improve noise/calibration LUT parsing tolerance (`860a618515`, `e048ff875`) | Submitted | `a98cb7af`; `thermal_noise_utils.cc` and `sentinel1_utils.cc` accept `noiseLut`/`noiseRangeLut`, parse general ASCII whitespace, and validate declared/aligned counts without formula or range-vector-selection changes |
+| 5 | Align thermal-noise vector selection and interpolation (`8be3a2b94`, `38418ee3d`, `7be4ed8a4`) | Implemented locally | GRD nearest-in-swath fallback resolves [#37](https://github.com/cgi-estonia-space/ALUs/issues/37) and [#39](https://github.com/cgi-estonia-space/ALUs/issues/39); range vectors interpolate by azimuth time; TOPS SLC uses original subset coordinates and start-time-aligned absolute burst indices; 26 thermal-noise tests and four real calibration executions completed |
+| 6 | Review calibration numerical behavior | Reviewed and manually accepted | Current IW products and calibration-chain outputs are good; parser changes remain in `a98cb7af` and no formula changes are required |
+| 7 | ETAD-assisted IW processing | Next | Immediate implementation/review topic and standalone IW workstream |
+| 8 | Burst-based IW product processing | Second | Begin after ETAD; review burst timing, valid pixels, subset metadata, split/deburst/merge behavior, and related consumers |
+| 9 | UTC MJD rounding (`ddf5a79cfc`) | Pending | Port only the narrow rounding fix and add a focused boundary regression test |
 
-| Order | Component | Reason |
-|---|---|---|
-| 1 | Foundational SAFE/product support | Review `snap-engine`, SAR reader abstractions, metadata constants, product model assumptions, and SAFE format handling needed by all SAR-based operations before touching algorithm-specific logic |
-| 2 | Sentinel-1 SAFE reader and product directory | Update/verify `sentinel1/s1tbx-io` against current `sar-io` behavior for SAFE folder/zip handling, manifest/annotation parsing, product type, acquisition mode, S1C/S1D, updated Level-1 variants, and raster band mapping |
-| 3 | Burst-based product reading and metadata | Review TOPSAR burst/subswath metadata extraction, valid-pixel boundaries, geolocation grid handling, split/subset behavior, and burst timing before comparing burst-based operators |
-| 4 | Orbit and orbit-state-vector support | Verify Apply-Orbit-File, POD orbit parsing, state-vector updates, timing, and metadata writes after the reader/product model is aligned |
-| 5 | Thermal noise removal | Review after noise metadata parsing is trusted; directly affects calibration inputs and has upstream changes in noise vector selection and TNR behavior |
-| 6 | Calibration | Review after calibration-vector metadata parsing is trusted; benchmark-visible output depends on LUT selection, no-data/floor handling, complex/intensity behavior, and mission/product support |
-| 7 | Range-Doppler terrain correction | Review once source products, orbit state vectors, and metadata are aligned; final geolocation, DEM usage, masks, and no-data behavior are benchmark-visible |
-| 8 | Backgeocoding and coregistration | Review after burst metadata, orbit support, and terrain/DEM handling are aligned; directly affects coherence quality and includes substantial upstream divergence |
-| 9 | Coherence | Review after coregistration inputs are stable; final coherence values are benchmark-visible and depend on window defaults, no-data handling, flat-earth phase subtraction, and metadata output |
-| 10 | SAR physics extensions and ETAD-related logic | Review as a separate scope decision after baseline chains are aligned; ETAD, tropospheric/phase-screen corrections, and other newer physics features may be high impact but should not block foundational SAFE/product compatibility unless required by benchmarks |
+| Order | Component | Status | Priority | Remaining reason/action |
+|---|---|---|---|---|
+| 1 | ETAD-assisted IW processing | Pending | Next | Review and implement Microwave Toolbox ETAD ingestion and ETAD-assisted Sentinel-1 behavior required by IW workflows |
+| 2 | Burst-based IW product processing | Partial | Second | TNR subset coordinates and burst alignment are fixed; continue with valid pixels, timing, subset metadata, split/deburst/merge behavior, and related burst consumers after ETAD |
+| 3 | Foundational SAFE/product support | Partial | Lower | Selected metadata/geocoding utilities are fixed; revisit broader `snap-engine` parity only for concrete IW evidence |
+| 4 | Sentinel-1 SAFE reader and product directory | Partial | Lower | Manifest and selected IW reader behavior are hardened; limit follow-up to concrete IW `sar-io`, SAFE folder/zip, cache, RFI, or range-window needs |
+| 5 | Thermal noise removal | Core IW sync implemented locally | Complete for current scope | S1D is manually accepted; later SNAP-4160 policy parity is optional and lower priority |
+| 6 | Calibration | Parser implemented; numerical behavior reviewed | Complete for current scope | Current IW products and manual calibration verification require no additional formula changes |
+| 7 | Orbit and orbit-state-vector support | Pending | Lower; no current regression | Retain Apply-Orbit-File, POD parsing/interpolation, timing, metadata, and race-condition parity for evidence-driven follow-up |
+| 8 | Range-Doppler terrain correction | Partial | Lower; no current regression | Fine-grid support fixes are implemented; current products are good, so broader parity is deferred |
+| 9 | Backgeocoding and coregistration | Pending | Lower; no current regression | Retain footprint/bounds, DEM, burst pairing, and interpolation review without treating it as an immediate blocker |
+| 10 | Coherence | Pending | Lower; no current regression | Retain defaults, flat-earth phase, no-data, band selection, and metadata review for later |
 
-Queue status note: items 1 and 2 have selected IW SAFE reader fixes applied, but item 2 remains open for full reader/product-directory review. The implemented changes harden manifest parsing, tie-point-grid geocoding, antimeridian handling, and reader close behavior; they do not claim full parity with current Microwave Toolbox `sar-io`.
+
+Thermal-noise verification note: the reported `S1A_IW_GRDH_1SDV_20230702T034804_20230702T034833_049239_05EBBE_15A6.SAFE` failure completes with the Microwave Toolbox IW2 fallback to range vector 2. The Virumaa calibration output remains pixel-identical to its golden. The changed S1D output from `build-automation/estonia-2026-S1D-calibration.sh` has been manually verified and accepted.
 
 Range-Doppler geocoding note: `ReaderUtils::CreateFineTiePointGrid()` is not discarded from review. ALUs Range-Doppler terrain correction can consume product latitude/longitude tie-point grids, and ALUs had a C++ port-specific output-vector pass-by-value issue in this helper path. The STEP forum report [Geolocation inaccuracy](https://forum.step.esa.int/t/geolocation-inaccuracy/37504) is tracked as Range-Doppler/TOPSAR subset-size geolocation evidence, not as proof that `CreateFineTiePointGrid()` alone caused the upstream issue.

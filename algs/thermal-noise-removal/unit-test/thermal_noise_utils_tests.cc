@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -91,6 +92,33 @@ std::shared_ptr<alus::snapengine::MetadataElement> CreateAzimuthNoiseVectorList(
     list->AddElement(noise_vector);
 
     return list;
+}
+
+void AddSwathBounds(const std::shared_ptr<alus::snapengine::MetadataElement>& original_metadata_root,
+                    std::string_view image_name, std::string_view swath, int first_line, int last_line) {
+    const auto product = original_metadata_root->GetElement(alus::snapengine::AbstractMetadata::ANNOTATION)
+                             ->GetElement(image_name)
+                             ->GetElement(alus::snapengine::AbstractMetadata::PRODUCT);
+    const auto swath_merging = test::utils::CreateElement("swathMerging");
+    const auto swath_merge_list = test::utils::CreateElement("swathMergeList");
+    const auto swath_merge = test::utils::CreateElement("swathMerge");
+    swath_merge->SetAttributeString(alus::snapengine::AbstractMetadata::SWATH, swath);
+    const auto swath_bounds_list = test::utils::CreateElement("swathBoundsList");
+
+    const auto first_bounds = test::utils::CreateElement("swathBounds");
+    first_bounds->SetAttributeInt(alus::snapengine::AbstractMetadata::FIRST_AZIMUTH_LINE, first_line);
+    first_bounds->SetAttributeInt(alus::snapengine::AbstractMetadata::LAST_AZIMUTH_LINE, first_line + 1);
+    swath_bounds_list->AddElement(first_bounds);
+
+    const auto last_bounds = test::utils::CreateElement("swathBounds");
+    last_bounds->SetAttributeInt(alus::snapengine::AbstractMetadata::FIRST_AZIMUTH_LINE, last_line - 1);
+    last_bounds->SetAttributeInt(alus::snapengine::AbstractMetadata::LAST_AZIMUTH_LINE, last_line);
+    swath_bounds_list->AddElement(last_bounds);
+
+    swath_merge->AddElement(swath_bounds_list);
+    swath_merge_list->AddElement(swath_merge);
+    swath_merging->AddElement(swath_merge_list);
+    product->AddElement(swath_merging);
 }
 
 class ThermalNoiseUtilsTest : public ::testing::Test {
@@ -191,6 +219,12 @@ TEST(ThermalNoiseMetadataParsingTest, rejectsAzimuthLutAndLineCountMismatch) {
     EXPECT_THROW(alus::tnr::GetAzimuthNoiseVectorList(list), std::runtime_error);
 }
 
+TEST(ThermalNoiseMetadataParsingTest, rejectsEmptyAzimuthLut) {
+    const auto list = CreateAzimuthNoiseVectorList("", "", 0, 0);
+
+    EXPECT_THROW(alus::tnr::GetAzimuthNoiseVectorList(list), std::runtime_error);
+}
+
 TEST(ThermalNoiseMetadataParsingTest, parsesCalibrationLutWithGeneralWhitespace) {
     const auto vectors =
         alus::s1tbx::Sentinel1Utils::GetCalibrationVectors(CreateCalibrationVectorList(), true, false, false, false);
@@ -219,6 +253,71 @@ TEST_F(ThermalNoiseUtilsTest, fillTimeMapsWithT0AndDeltaTStest) {
     alus::tnr::FillTimeMapsWithT0AndDeltaTS(test::constants::IW2_VH_DATA.image_name, original_metadata_root_,
                                                      iw2_vh_time_maps);
     test::utils::AssertTimeMapsAreSame(test::expectedvalues::IW2_VH_TIME_MAPS, iw2_vh_time_maps);
+}
+
+TEST_F(ThermalNoiseUtilsTest, fillsSwathStartAndEndTimes) {
+    constexpr int first_line{100};
+    constexpr int last_line{250};
+    AddSwathBounds(original_metadata_root_, test::constants::IW1_VV_DATA.image_name, "IW2", first_line, last_line);
+
+    alus::tnr::TimeMaps time_maps;
+    alus::tnr::FillTimeMapsWithT0AndDeltaTS(test::constants::IW1_VV_DATA.image_name, original_metadata_root_,
+                                            time_maps);
+
+    const auto image_name = std::string(test::constants::IW1_VV_DATA.image_name);
+    const auto t0 = time_maps.t_0_map.at(image_name);
+    const auto delta_t = time_maps.delta_t_map.at(image_name);
+    ASSERT_THAT(time_maps.swath_start_end_times_map.at("IW2"), ::testing::SizeIs(2));
+    EXPECT_DOUBLE_EQ(time_maps.swath_start_end_times_map.at("IW2").front(), t0 + first_line * delta_t);
+    EXPECT_DOUBLE_EQ(time_maps.swath_start_end_times_map.at("IW2").back(), t0 + last_line * delta_t);
+}
+
+TEST(ThermalNoiseInterpolationTest, selectsVectorsInsideAzimuthBlock) {
+    const std::vector<alus::s1tbx::NoiseVector> vectors{{1.0, 10, {0, 1}, {1.0F, 1.0F}},
+                                                        {2.0, 20, {0, 1}, {2.0F, 2.0F}},
+                                                        {3.0, 30, {0, 1}, {3.0F, 3.0F}}};
+
+    EXPECT_THAT(alus::tnr::DetermineNoiseVectorIndices(1.0, 2.0, vectors, {0.0, 4.0}),
+                ::testing::ElementsAre(0, 1));
+}
+
+TEST(ThermalNoiseInterpolationTest, selectsNearestVectorConstrainedToSwath) {
+    const std::vector<alus::s1tbx::NoiseVector> vectors{{1.0, 10, {0, 1}, {1.0F, 1.0F}},
+                                                        {2.0, 20, {0, 1}, {2.0F, 2.0F}},
+                                                        {3.0, 30, {0, 1}, {3.0F, 3.0F}}};
+
+    EXPECT_THAT(alus::tnr::DetermineNoiseVectorIndices(1.4, 1.6, vectors, {1.5, 3.5}),
+                ::testing::ElementsAre(1));
+    EXPECT_THAT(alus::tnr::DetermineNoiseVectorIndices(1.4, 1.6, vectors, {4.0, 5.0}), ::testing::IsEmpty());
+}
+
+TEST(ThermalNoiseInterpolationTest, findsClosestSlcVectorByStartTime) {
+    const std::vector<alus::s1tbx::NoiseVector> vectors{{1.0, 10, {}, {}},
+                                                        {2.0, 20, {}, {}},
+                                                        {3.0, 30, {}, {}}};
+
+    EXPECT_EQ(alus::tnr::GetClosestNoiseVectorIndex(2.6, vectors), 2);
+    EXPECT_EQ(alus::tnr::GetClosestNoiseVectorIndex(1.5, vectors), 0);
+}
+
+TEST(ThermalNoiseInterpolationTest, interpolatesRangeVectorsByAzimuthTime) {
+    std::vector<std::vector<double>> values(3, std::vector<double>(1));
+
+    alus::tnr::ComputeNoiseMatrix(0, 0, 0, 0, 0, 2, 10.0, 1.0, {10.0, 14.0}, {{2.0}, {6.0}},
+                                  {1.0, 1.0, 1.0}, values);
+
+    EXPECT_DOUBLE_EQ(values.at(0).at(0), 2.0);
+    EXPECT_DOUBLE_EQ(values.at(1).at(0), 3.0);
+    EXPECT_DOUBLE_EQ(values.at(2).at(0), 4.0);
+}
+
+TEST(ThermalNoiseInterpolationTest, treatsSingleValueRangeLutAsConstant) {
+    const alus::s1tbx::NoiseVector vector{1.0, 10, {5}, {7.0F}};
+    std::vector<double> values(5);
+
+    alus::tnr::FillRangeNoiseWithInterpolatedValues(vector, 3, 7, values);
+
+    EXPECT_THAT(values, ::testing::Each(7.0));
 }
 
 TEST_F(ThermalNoiseUtilsTest, getBurstRangeVectorTest) {

@@ -17,11 +17,14 @@
 #include <boost/algorithm/string.hpp>
 
 #include <driver_types.h>
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <set>
+#include <iomanip>
+#include <string>
 #include <string_view>
 
+#include "alus_log.h"
 #include "s1tbx-commons/sentinel1_utils.h"
 #include "snap-core/core/datamodel/metadata_element.h"
 #include "snap-engine-utilities/engine-utilities/datamodel/metadata/abstract_metadata.h"
@@ -35,6 +38,9 @@ namespace {
 
 // IPF 2.9.0 introduced noiseRangeLut; older SAFE products store the same values under noiseLut.
 constexpr std::string_view LEGACY_NOISE_LUT{"noiseLut"};
+constexpr std::string_view SWATH_MERGING{"swathMerging"};
+constexpr std::string_view SWATH_MERGE_LIST{"swathMergeList"};
+constexpr std::string_view SWATH_BOUNDS_LIST{"swathBoundsList"};
 
 void ValidateMetadataCount(std::string_view field, int declared_count, std::size_t parsed_count) {
     if (declared_count < 0 || parsed_count != static_cast<std::size_t>(declared_count)) {
@@ -62,7 +68,27 @@ ThermalNoiseInfo GetThermalNoiseInfoForBursts(
                 noise_element->GetElement(snapengine::AbstractMetadata::NOISE_AZIMUTH_VECTOR_LIST));
             thermal_noise_info.noise_range_vectors =
                 GetNoiseVectorList(noise_element->GetElement(snapengine::AbstractMetadata::NOISE_RANGE_VECTOR_LIST));
+
+            const auto ads_header = noise_element->GetElement(snapengine::AbstractMetadata::ADS_HEADER);
+            if (!ads_header) {
+                throw std::runtime_error("Noise metadata is missing adsHeader required for TOPS SLC vector alignment");
+            }
+            const auto start_time =
+                s1tbx::Sentinel1Utils::GetTime(ads_header, snapengine::AbstractMetadata::START_TIME)->GetMjd();
+            const auto vectors_to_skip = GetClosestNoiseVectorIndex(start_time, thermal_noise_info.noise_range_vectors);
+            if (vectors_to_skip > 0) {
+                LOGW << "TOPS SLC noise metadata starts after " << vectors_to_skip
+                     << " range vector(s); aligning burst indices to adsHeader.startTime as Microwave Toolbox does";
+            }
+            thermal_noise_info.burst_to_range_vector_map.assign(
+                thermal_noise_info.noise_range_vectors.begin() + static_cast<std::ptrdiff_t>(vectors_to_skip),
+                thermal_noise_info.noise_range_vectors.end());
+            break;
         }
+    }
+
+    if (thermal_noise_info.burst_to_range_vector_map.empty()) {
+        throw std::runtime_error("No noise range vectors found for TOPS SLC thermal noise removal");
     }
 
     for (const auto& image_element :
@@ -75,16 +101,12 @@ ThermalNoiseInfo GetThermalNoiseInfoForBursts(
 
             thermal_noise_info.lines_per_burst =
                 swath_timing_element->GetAttributeInt(snapengine::AbstractMetadata::LINES_PER_BURST);
-            const auto burst_list_array =
-                swath_timing_element->GetElement(snapengine::AbstractMetadata::BURST_LIST)->GetElements();
-            thermal_noise_info.burst_to_range_vector_map.resize(burst_list_array.size());
-            for (size_t i = 0; i < burst_list_array.size(); i++) {
-                const auto burst_center_line =
-                    i * thermal_noise_info.lines_per_burst + thermal_noise_info.lines_per_burst / 2;
-                thermal_noise_info.burst_to_range_vector_map.at(i) =
-                    GetBurstRangeVector(static_cast<int>(burst_center_line), thermal_noise_info.noise_range_vectors);
-            }
+            break;
         }
+    }
+
+    if (thermal_noise_info.lines_per_burst <= 0) {
+        throw std::runtime_error("Invalid linesPerBurst metadata for TOPS SLC thermal noise removal");
     }
 
     return thermal_noise_info;
@@ -126,12 +148,42 @@ void FillTimeMapsWithT0AndDeltaTS(const std::string_view& image_name,
             const auto t_0 = s1tbx::Sentinel1Utils::GetTime(image_information_element,
                                                             snapengine::AbstractMetadata::PRODUCT_FIRST_LINE_UTC_TIME)
                                  ->GetMjd();
-            time_maps.t_0_map.insert_or_assign(image_name.data(), t_0);
+            const auto image_name_key = std::string(image_name);
+            time_maps.t_0_map.insert_or_assign(image_name_key, t_0);
 
             const auto delta_ts =
                 image_information_element->GetAttributeDouble(snapengine::AbstractMetadata::AZIMUTH_TIME_INTERVAL) /
                 snapengine::eo::constants::SECONDS_IN_DAY;
-            time_maps.delta_t_map.insert_or_assign(image_name.data(), delta_ts);
+            time_maps.delta_t_map.insert_or_assign(image_name_key, delta_ts);
+
+            const auto product_element = annotation_element->GetElement(snapengine::AbstractMetadata::PRODUCT);
+            const auto swath_merging_element = product_element->GetElement(SWATH_MERGING);
+            if (swath_merging_element) {
+                const auto swath_merge_list_element = swath_merging_element->GetElement(SWATH_MERGE_LIST);
+                if (swath_merge_list_element) {
+                    for (const auto& swath_merge_element : swath_merge_list_element->GetElements()) {
+                        if (!swath_merge_element->ContainsAttribute(snapengine::AbstractMetadata::SWATH)) {
+                            continue;
+                        }
+                        const auto swath_bounds_list_element = swath_merge_element->GetElement(SWATH_BOUNDS_LIST);
+                        if (!swath_bounds_list_element) {
+                            continue;
+                        }
+                        const auto swath_bounds = swath_bounds_list_element->GetElements();
+                        if (swath_bounds.empty()) {
+                            continue;
+                        }
+
+                        const auto first_line = swath_bounds.front()->GetAttributeInt(
+                            snapengine::AbstractMetadata::FIRST_AZIMUTH_LINE);
+                        const auto last_line =
+                            swath_bounds.back()->GetAttributeInt(snapengine::AbstractMetadata::LAST_AZIMUTH_LINE);
+                        time_maps.swath_start_end_times_map.insert_or_assign(
+                            swath_merge_element->GetAttributeString(snapengine::AbstractMetadata::SWATH),
+                            std::vector<double>{t_0 + first_line * delta_ts, t_0 + last_line * delta_ts});
+                    }
+                }
+            }
 
             return;
         }
@@ -163,6 +215,9 @@ std::vector<s1tbx::NoiseAzimuthVector> GetAzimuthNoiseVectorList(
                               noise_lut_vector.size());
         if (noise_lut_count != count) {
             throw std::runtime_error("noiseAzimuthLut metadata count does not match line count");
+        }
+        if (line_vector.empty()) {
+            throw std::runtime_error("Noise azimuth vector contains no line/LUT values");
         }
 
         const auto swath = noise_vector_element->ContainsAttribute(snapengine::AbstractMetadata::SWATH)
@@ -235,6 +290,13 @@ std::vector<s1tbx::NoiseVector> GetNoiseVectorList(
         if (noise_lut_count != count) {
             throw std::runtime_error("Noise LUT metadata count does not match pixel count");
         }
+        if (pixel_vector.empty()) {
+            throw std::runtime_error("Noise range vector contains no pixel/LUT values");
+        }
+        if (pixel_vector.size() == 1) {
+            LOGW << "Noise range vector at line " << line
+                 << " contains one LUT value; using it as a constant as Microwave Toolbox does";
+        }
 
         noise_vector_list.push_back({time, line, pixel_vector, noise_lut_vector});
     }
@@ -252,8 +314,26 @@ s1tbx::NoiseVector GetBurstRangeVector(int burst_center_line,
     }
     return noise_range_vectors.at(closest);
 }
+
+size_t GetClosestNoiseVectorIndex(double azimuth_time,
+                                  const std::vector<s1tbx::NoiseVector>& noise_range_vectors) {
+    if (noise_range_vectors.empty()) {
+        throw std::runtime_error("Cannot select a noise range vector from an empty list");
+    }
+
+    size_t closest{0};
+    for (size_t i = 1; i < noise_range_vectors.size(); i++) {
+        if (std::abs(azimuth_time - noise_range_vectors.at(i).time_mjd) <
+            std::abs(azimuth_time - noise_range_vectors.at(closest).time_mjd)) {
+            closest = i;
+        }
+    }
+    return closest;
+}
 size_t GetLineIndex(int line, const std::vector<int>& lines) {
-    // NB! Lines length is assumed to be larger than 2.
+    if (lines.size() < 2) {
+        return 0;
+    }
     for (size_t i = 0; i < lines.size(); ++i) {
         if (line < lines.at(i)) {
             return i > 0 ? i - 1 : 0;
@@ -264,6 +344,18 @@ size_t GetLineIndex(int line, const std::vector<int>& lines) {
 }
 device::Matrix<double> BuildNoiseLutForTOPSSLC(Rectangle tile, const ThermalNoiseInfo& thermal_noise_info,
                                                ThreadData* thread_data) {
+    const auto first_burst_index = tile.y / thermal_noise_info.lines_per_burst;
+    const auto last_burst_index = (tile.y + tile.height - 1) / thermal_noise_info.lines_per_burst;
+    if (thermal_noise_info.burst_to_range_vector_map.empty() || first_burst_index < 0 ||
+        last_burst_index >= static_cast<int>(thermal_noise_info.burst_to_range_vector_map.size())) {
+        const auto last_available_burst = thermal_noise_info.burst_to_range_vector_map.empty()
+                                              ? -1
+                                              : static_cast<int>(thermal_noise_info.burst_to_range_vector_map.size()) - 1;
+        throw std::runtime_error("TOPS SLC tile requires noise range vector for burst " +
+                                 std::to_string(last_burst_index) + ", but metadata provides vectors through burst " +
+                                 std::to_string(last_available_burst));
+    }
+
     // INTERPOLATE NOISE AZIMUTH KERNEL
     const auto d_azimuth_vector = thermal_noise_info.noise_azimuth_vectors.at(0).ToDeviceVector();
     const auto starting_line_index = GetLineIndex(tile.y, thermal_noise_info.noise_azimuth_vectors.at(0).lines);
@@ -310,6 +402,10 @@ device::Matrix<double> BuildNoiseLutForTOPSSLC(Rectangle tile, const ThermalNois
 
 device::Matrix<double> BuildNoiseLutForTOPSGRD(Rectangle tile, const ThermalNoiseInfo& thermal_noise_info,
                                                ThreadData* thread_data) {
+    if (thermal_noise_info.time_maps.t_0_map.empty() || thermal_noise_info.time_maps.delta_t_map.empty()) {
+        throw std::runtime_error("Missing first-line time or azimuth interval metadata for GRD thermal noise removal");
+    }
+
     const auto x_max = tile.x + tile.width - 1;
     const auto y_max = tile.y + tile.height - 1;
     bool has_data{false};
@@ -335,21 +431,42 @@ device::Matrix<double> BuildNoiseLutForTOPSGRD(Rectangle tile, const ThermalNois
         const auto line_time_interval = thermal_noise_info.time_maps.delta_t_map.begin()->second;
         const auto start_azim_time = first_line_time + nav.first_azimuth_line * line_time_interval;
         const auto end_azim_time = first_line_time + nav.last_azimuth_line * line_time_interval;
-        const auto noise_vector_indices =
-            DetermineNoiseVectorIndices(start_azim_time, end_azim_time, thermal_noise_info.noise_range_vectors);
-        if (noise_vector_indices.size() == 0) {
-            throw std::runtime_error("There were no matching noise values from noise vectors for azimuth range [" +
-                                     std::to_string(start_azim_time) + ", " + std::to_string(end_azim_time) +
-                                     "]. Tile properties x:" + std::to_string(tile.x) + " y:" + std::to_string(tile.y) +
-                                     " w:" + std::to_string(tile.width) + " h:" + std::to_string(tile.height));
+        const auto swath_times = thermal_noise_info.time_maps.swath_start_end_times_map.find(nav.swath);
+        const std::vector<double> empty_swath_times;
+        const auto& swath_start_end_times =
+            swath_times != thermal_noise_info.time_maps.swath_start_end_times_map.end() ? swath_times->second
+                                                                                        : empty_swath_times;
+        const auto noise_vector_indices = DetermineNoiseVectorIndices(
+            start_azim_time, end_azim_time, thermal_noise_info.noise_range_vectors, swath_start_end_times);
+        const bool first_tile_for_block = tile.x <= nav.first_range_sample && nav.first_range_sample <= x_max &&
+                                          tile.y <= nav.first_azimuth_line && nav.first_azimuth_line <= y_max;
+        if (noise_vector_indices.empty()) {
+            if (first_tile_for_block) {
+                LOGW << std::setprecision(15) << "No valid noise range vector found for " << nav.swath
+                     << " azimuth block lines [" << nav.first_azimuth_line << ", " << nav.last_azimuth_line
+                     << "] and times [" << start_azim_time << ", " << end_azim_time
+                     << "]; metadata is insufficient, so the thermal-noise LUT remains zero in this block";
+            }
+            continue;
+        }
+        if (noise_vector_indices.size() == 1) {
+            const auto selected_index = noise_vector_indices.front();
+            const auto selected_time = thermal_noise_info.noise_range_vectors.at(selected_index).time_mjd;
+            if (first_tile_for_block && (selected_time < start_azim_time || selected_time > end_azim_time)) {
+                LOGW << std::setprecision(15) << "No noise range vector falls inside " << nav.swath
+                     << " azimuth block lines [" << nav.first_azimuth_line << ", " << nav.last_azimuth_line
+                     << "] and times [" << start_azim_time << ", " << end_azim_time << "]; using nearest in-swath "
+                     << "vector " << selected_index << " at " << selected_time
+                     << " as Microwave Toolbox does, with range noise held constant across the block";
+            }
         }
 
         const auto interpolated_range_value_count = nx_max - nx0 + 1;
         std::vector<std::vector<double>> interpolated_range_vectors(noise_vector_indices.size());
-        std::vector<int> noise_range_vector_line(noise_vector_indices.size());
+        std::vector<double> noise_range_vector_azimuth_times(noise_vector_indices.size());
         for (int i{0}; i < static_cast<int>(noise_vector_indices.size()); i++) {
             const auto& noise_range_vector = thermal_noise_info.noise_range_vectors.at(noise_vector_indices.at(i));
-            noise_range_vector_line[i] = noise_range_vector.line;
+            noise_range_vector_azimuth_times[i] = noise_range_vector.time_mjd;
 
             interpolated_range_vectors.at(i) = std::vector<double>(interpolated_range_value_count);
             FillRangeNoiseWithInterpolatedValues(noise_range_vector, nx0, nx_max, interpolated_range_vectors.at(i));
@@ -357,16 +474,15 @@ device::Matrix<double> BuildNoiseLutForTOPSGRD(Rectangle tile, const ThermalNois
 
         std::vector<double> interpolated_azimuth_vector(ny_max - ny0 + 1);
         FillAzimuthNoiseVectorWithInterpolatedValues(nav, ny0, ny_max, interpolated_azimuth_vector);
-        ComputeNoiseMatrix(tile.x, tile.y, nx0, nx_max, ny0, ny_max, noise_range_vector_line,
-                           interpolated_range_vectors, interpolated_azimuth_vector, noise_matrix);
+        ComputeNoiseMatrix(tile.x, tile.y, nx0, nx_max, ny0, ny_max, first_line_time, line_time_interval,
+                           noise_range_vector_azimuth_times, interpolated_range_vectors, interpolated_azimuth_vector,
+                           noise_matrix);
     }
 
     if (!has_data) {
-        throw std::runtime_error(
-            "Could not locate a tile for a given range and azimuth set of a product for thermal noise removal "
-            "calculation. Tile properties x:" +
-            std::to_string(tile.x) + " y:" + std::to_string(tile.y) + " w:" + std::to_string(tile.width) +
-            " h:" + std::to_string(tile.height));
+        LOGW << "No noise azimuth metadata block overlaps tile x:" << tile.x << " y:" << tile.y
+             << " w:" << tile.width << " h:" << tile.height
+             << "; the thermal-noise LUT remains zero for this tile";
     }
 
     const auto noise_matrix_dev =
@@ -375,20 +491,20 @@ device::Matrix<double> BuildNoiseLutForTOPSGRD(Rectangle tile, const ThermalNois
 }
 
 cuda::KernelArray<int> CalculateBurstIndices(Rectangle tile, int lines_per_burst, ThreadData* thread_data) {
-    const int average_burst_count{9};
+    if (lines_per_burst <= 0) {
+        throw std::runtime_error(
+            "CalculateBurstIndices failed while building the TOPS SLC thermal-noise LUT: annotation "
+            "swathTiming.linesPerBurst must be positive, but was " +
+            std::to_string(lines_per_burst) +
+            ". The selected subswath or split product may have missing, malformed, or inconsistent burst metadata.");
+    }
+
+    const auto first_burst_index = tile.y / lines_per_burst;
+    const auto last_burst_index = (tile.y + tile.height - 1) / lines_per_burst;
     std::vector<int> burst_indices;
-    burst_indices.reserve(average_burst_count);
-    for (int i = 0; i < tile.height; ++i) {
-        auto y = i + tile.y;
-        const auto burst_index = y / lines_per_burst;
+    burst_indices.reserve(last_burst_index - first_burst_index + 1);
+    for (auto burst_index = first_burst_index; burst_index <= last_burst_index; burst_index++) {
         burst_indices.emplace_back(burst_index);
-        i += lines_per_burst;
-        if (i >= tile.height) {  // Case for when lines_per_burst is larger than tile.
-            const auto last_index = (tile.height + tile.y - 1) / lines_per_burst;
-            if (last_index != burst_index) {
-                burst_indices.emplace_back(last_index);
-            }
-        }
     }
     (void)thread_data;
     cuda::KernelArray<int> d_burst_indices{nullptr, burst_indices.size()};
@@ -400,7 +516,8 @@ cuda::KernelArray<int> CalculateBurstIndices(Rectangle tile, int lines_per_burst
 }
 
 std::vector<size_t> DetermineNoiseVectorIndices(double start_az_time, double end_az_time,
-                                                const std::vector<s1tbx::NoiseVector>& noise_range) {
+                                                 const std::vector<s1tbx::NoiseVector>& noise_range,
+                                                 const std::vector<double>& swath_start_end_times) {
     std::vector<size_t> results;
     for (size_t i{0}; i < noise_range.size(); i++) {
         if (noise_range.at(i).time_mjd >= start_az_time && noise_range.at(i).time_mjd <= end_az_time) {
@@ -408,19 +525,51 @@ std::vector<size_t> DetermineNoiseVectorIndices(double start_az_time, double end
         }
     }
 
+    if (results.empty() && swath_start_end_times.size() == 2) {
+        const auto block_centre_time = (start_az_time + end_az_time) / 2.0;
+        size_t closest = noise_range.size();
+        for (size_t i = 0; i < noise_range.size(); i++) {
+            const auto azimuth_time = noise_range.at(i).time_mjd;
+            if (azimuth_time < swath_start_end_times.front() || azimuth_time > swath_start_end_times.back()) {
+                continue;
+            }
+            if (closest == noise_range.size() ||
+                std::abs(block_centre_time - azimuth_time) <
+                    std::abs(block_centre_time - noise_range.at(closest).time_mjd)) {
+                closest = i;
+            }
+        }
+        if (closest != noise_range.size()) {
+            results.push_back(closest);
+        }
+    }
+
     return results;
 }
 
 inline double InterpolateNoise(int p1, int p2, double noise1, double noise2, int sample_index) {
+    if (p1 == p2) {
+        return 0.0;
+    }
     return noise1 + (static_cast<double>(sample_index - p1) / static_cast<double>(p2 - p1)) * (noise2 - noise1);
+}
+
+inline double InterpolateNoiseByTime(double t1, double t2, double noise1, double noise2, double azimuth_time) {
+    if (t1 == t2) {
+        return 0.0;
+    }
+    return noise1 + ((azimuth_time - t1) / (t2 - t1)) * (noise2 - noise1);
 }
 
 void FillRangeNoiseWithInterpolatedValues(const s1tbx::NoiseVector& nv, int first_range_sample, int last_range_sample,
                                           std::vector<double>& to_compute) {
     const int nv_pix_len{static_cast<int>(nv.pixels.size())};
-    if (nv_pix_len < 2) {
-        throw std::runtime_error(std::string(__FUNCTION__) + " expects more elements in noise vector than " +
-                                 std::to_string(nv_pix_len) + ". Please check the input metadata.");
+    if (nv_pix_len == 0) {
+        throw std::runtime_error(std::string(__FUNCTION__) + " received an empty noise range vector");
+    }
+    if (nv_pix_len == 1) {
+        std::fill(to_compute.begin(), to_compute.end(), nv.noise_lut.front());
+        return;
     }
 
     size_t computed_index{0};
@@ -458,11 +607,12 @@ void FillAzimuthNoiseVectorWithInterpolatedValues(const s1tbx::NoiseAzimuthVecto
 }
 
 void ComputeNoiseMatrix(int tile_offset_x, int tile_offset_y, int nx0, int nx_max, int ny0, int ny_max,
-                        const std::vector<int>& noise_range_vector_line,
+                        double first_line_time, double line_time_interval,
+                        const std::vector<double>& noise_range_vector_azimuth_times,
                         const std::vector<std::vector<double>>& interpolated_range_vectors,
                         const std::vector<double>& interpolated_azimuth_vector,
                         std::vector<std::vector<double>>& values) {
-    if (noise_range_vector_line.size() == 1) {
+    if (noise_range_vector_azimuth_times.size() == 1) {
         for (int x = nx0; x <= nx_max; x++) {
             const int xx = x - nx0;
             for (int y = ny0; y <= ny_max; y++) {
@@ -472,24 +622,34 @@ void ComputeNoiseMatrix(int tile_offset_x, int tile_offset_y, int nx0, int nx_ma
         }
 
     } else {
-        const int line0_index = GetSampleIndex(ny0, noise_range_vector_line);
+        const auto first_azimuth_time = first_line_time + line_time_interval * ny0;
+        size_t first_time_index{0};
+        for (size_t i = 0; i < noise_range_vector_azimuth_times.size(); i++) {
+            if (first_azimuth_time < noise_range_vector_azimuth_times.at(i)) {
+                first_time_index = i > 0 ? i - 1 : 0;
+                break;
+            }
+            first_time_index = noise_range_vector_azimuth_times.size() - 2;
+        }
 
         for (int x = nx0; x <= nx_max; x++) {
             const int xx = x - nx0;
-            int line_index = line0_index;
+            auto time_index = first_time_index;
 
             for (int y = ny0; y <= ny_max; y++) {
-                if (y > noise_range_vector_line[line_index + 1] &&
-                    line_index < static_cast<int>(noise_range_vector_line.size()) - 2) {
-                    line_index++;
+                const auto azimuth_time = first_line_time + line_time_interval * y;
+                if (azimuth_time > noise_range_vector_azimuth_times[time_index + 1] &&
+                    time_index < noise_range_vector_azimuth_times.size() - 2) {
+                    time_index++;
                 }
 
                 // Direct access with '[]' is faster around half a second per GRD dataset.
                 values[y - tile_offset_y][x - tile_offset_x] =
                     interpolated_azimuth_vector[y - ny0] *
-                    InterpolateNoise(noise_range_vector_line[line_index], noise_range_vector_line[line_index + 1],
-                                     interpolated_range_vectors[line_index][xx],
-                                     interpolated_range_vectors[line_index + 1][xx], y);
+                    InterpolateNoiseByTime(noise_range_vector_azimuth_times[time_index],
+                                           noise_range_vector_azimuth_times[time_index + 1],
+                                           interpolated_range_vectors[time_index][xx],
+                                           interpolated_range_vectors[time_index + 1][xx], azimuth_time);
             }
         }
     }
