@@ -13,13 +13,10 @@
  */
 #pragma once
 
-#include <atomic>
-#include <condition_variable>
 #include <cstdint>
 #include <memory>
 #include <mutex>
 #include <string_view>
-#include <thread>
 #include <vector>
 
 #include "alus_file_reader.h"
@@ -81,7 +78,6 @@ private:
     int num_of_bursts_;
     int lines_per_burst_;
     int samples_per_burst_;
-    const int recommended_tile_area_ = 4000000;
     bool beam_dimap_mode_ = false;
 
     std::shared_ptr<AlusFileReader<int16_t>> master_input_dataset_;

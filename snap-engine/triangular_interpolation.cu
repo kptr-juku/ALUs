@@ -13,6 +13,8 @@
  */
 #include "triangular_interpolation_computation.h"
 
+#include <climits>
+
 #include "cuda_util.h"
 
 namespace alus {
@@ -183,6 +185,9 @@ __global__ void Interpolate(Zdata* zdata, Zdataabc* abc, TriangleDto* dtos, Inte
 
             for (int d = 0; d < params.z_data_count; d++) {
                 double result = abc[abc_index + d].a * dto.xp + abc[abc_index + d].b * dto.yp + abc[abc_index + d].c;
+                if (!isfinite(result) || result < INT_MIN || result > INT_MAX) {
+                    continue;
+                }
                 zdata[d].output_arr[i * zdata[d].output_height + j] = result;
                 int int_result = (int)floor(result);
                 atomicMin(&zdata[d].min_int, int_result);

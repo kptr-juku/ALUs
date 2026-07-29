@@ -13,15 +13,23 @@
  */
 #pragma once
 
+#include <cstddef>
+
 #include <cuda_runtime.h>
-#include <device_launch_parameters.h>
 
 #include "delaunay_triangle2D.h"
 
-namespace alus {
-namespace delaunay {
+namespace alus::delaunay {
 
-cudaError_t LaunchDelaunayTriangulation(double *x_coords, double *y_coords, int width, int height, DelaunayTriangle2Dgpu *triangles);
+inline size_t GetDelaunayTriangleCount(int width, int height) {
+    if (width < 2 || height < 2) {
+        return 0;
+    }
+    return static_cast<size_t>(width - 1) * static_cast<size_t>(height - 1) * 2;
+}
 
-}//namespace
-}//namespace
+cudaError_t LaunchDelaunayTriangulation(const double* x_coords, double x_multiplier, const double* y_coords,
+                                        double y_multiplier, int width, int height, double invalid_index,
+                                        DelaunayTriangle2D* triangles);
+
+}  // namespace alus::delaunay

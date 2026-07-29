@@ -18,8 +18,10 @@
 
 #include "backgeocoding_constants.h"
 #include "comparators.h"
+#include "cuda_util.h"
 #include "delaunay_triangle2D.h"
 #include "delaunay_triangulator.h"
+#include "delaunay_triangulator.cuh"
 
 namespace {
 
@@ -136,6 +138,40 @@ public:
     }
 };
 
+std::vector<alus::delaunay::DelaunayTriangle2D> TriangulateGridOnGpu(const std::vector<double>& x_coords,
+                                                                     const std::vector<double>& y_coords, int width,
+                                                                     int height, double invalid_index) {
+    double* device_x_coords = nullptr;
+    double* device_y_coords = nullptr;
+    alus::delaunay::DelaunayTriangle2D* device_triangles = nullptr;
+    const size_t point_count = static_cast<size_t>(width) * height;
+    const size_t triangle_count = alus::delaunay::GetDelaunayTriangleCount(width, height);
+
+    CHECK_CUDA_ERR(cudaMalloc(&device_x_coords, point_count * sizeof(double)));
+    CHECK_CUDA_ERR(cudaMalloc(&device_y_coords, point_count * sizeof(double)));
+    CHECK_CUDA_ERR(cudaMalloc(&device_triangles, triangle_count * sizeof(alus::delaunay::DelaunayTriangle2D)));
+    CHECK_CUDA_ERR(
+        cudaMemcpy(device_x_coords, x_coords.data(), point_count * sizeof(double), cudaMemcpyHostToDevice));
+    CHECK_CUDA_ERR(
+        cudaMemcpy(device_y_coords, y_coords.data(), point_count * sizeof(double), cudaMemcpyHostToDevice));
+
+    CHECK_CUDA_ERR(alus::delaunay::LaunchDelaunayTriangulation(
+        device_x_coords, 1.0, device_y_coords, 1.0, width, height, invalid_index, device_triangles));
+
+    std::vector<alus::delaunay::DelaunayTriangle2D> triangles(triangle_count);
+    CHECK_CUDA_ERR(cudaMemcpy(triangles.data(), device_triangles,
+                              triangle_count * sizeof(alus::delaunay::DelaunayTriangle2D), cudaMemcpyDeviceToHost));
+    CHECK_CUDA_ERR(cudaFree(device_triangles));
+    CHECK_CUDA_ERR(cudaFree(device_y_coords));
+    CHECK_CUDA_ERR(cudaFree(device_x_coords));
+    return triangles;
+}
+
+double Orientation(const alus::delaunay::DelaunayTriangle2D& triangle) {
+    return (triangle.bx - triangle.ax) * (triangle.cy - triangle.ay) -
+           (triangle.by - triangle.ay) * (triangle.cx - triangle.ax);
+}
+
 // don't run this unless you are developing the delaunay gpu algorithm or it has been finished.
 /*TEST(DelaunayTest, TriangulationTest){
     alus::delaunay::DelaunayTriangle2D temp_triangle;
@@ -169,6 +205,57 @@ TEST(DelaunayTest, SmallCPUTriangulationTest) {
     size_t count = alus::EqualsTriangles(trianglulator.host_triangles_.data(), tester.triangles_.data(),
                                          trianglulator.triangle_count_, 0.00001);  // NOLINT
     EXPECT_EQ(count, 0) << "Triangle results do not match. Mismatches: " << count << '\n';
+}
+
+TEST(DelaunayTest, CudaGridTriangulationUsesDeterministicDelaunayDiagonal) {
+    constexpr int width = 2;
+    constexpr int height = 2;
+    constexpr double invalid_index = alus::backgeocoding::INVALID_INDEX;
+    const std::vector<double> x_coords{0.0, 0.0, 1.0, 1.0};
+    const std::vector<double> y_coords{0.0, 1.0, 0.0, 1.0};
+
+    const auto triangles = TriangulateGridOnGpu(x_coords, y_coords, width, height, invalid_index);
+
+    ASSERT_EQ(triangles.size(), 2);
+    EXPECT_GT(Orientation(triangles[0]), 0.0);
+    EXPECT_GT(Orientation(triangles[1]), 0.0);
+    const std::vector<int> first_indices{triangles[0].a_index, triangles[0].b_index, triangles[0].c_index};
+    const std::vector<int> second_indices{triangles[1].a_index, triangles[1].b_index, triangles[1].c_index};
+    EXPECT_THAT(first_indices, ::testing::UnorderedElementsAre(0, 1, 3));
+    EXPECT_THAT(second_indices, ::testing::UnorderedElementsAre(0, 2, 3));
+}
+
+TEST(DelaunayTest, CudaGridTriangulationFlipsNonDelaunayDiagonal) {
+    constexpr int width = 2;
+    constexpr int height = 2;
+    constexpr double invalid_index = alus::backgeocoding::INVALID_INDEX;
+    const std::vector<double> x_coords{0.0, 0.0, 1.0, 2.0};
+    const std::vector<double> y_coords{0.0, 2.0, 0.0, 2.0};
+
+    const auto triangles = TriangulateGridOnGpu(x_coords, y_coords, width, height, invalid_index);
+
+    ASSERT_EQ(triangles.size(), 2);
+    const std::vector<int> first_indices{triangles[0].a_index, triangles[0].b_index, triangles[0].c_index};
+    const std::vector<int> second_indices{triangles[1].a_index, triangles[1].b_index, triangles[1].c_index};
+    EXPECT_THAT(first_indices, ::testing::UnorderedElementsAre(0, 1, 2));
+    EXPECT_THAT(second_indices, ::testing::UnorderedElementsAre(1, 2, 3));
+}
+
+TEST(DelaunayTest, CudaGridTriangulationKeepsInvalidPointAsHole) {
+    constexpr int width = 2;
+    constexpr int height = 2;
+    constexpr double invalid_index = alus::backgeocoding::INVALID_INDEX;
+    const std::vector<double> x_coords{0.0, 0.0, 1.0, invalid_index};
+    const std::vector<double> y_coords{0.0, 1.0, 0.0, invalid_index};
+
+    const auto triangles = TriangulateGridOnGpu(x_coords, y_coords, width, height, invalid_index);
+
+    ASSERT_EQ(triangles.size(), 2);
+    EXPECT_GT(Orientation(triangles[0]), 0.0);
+    const std::vector<int> valid_indices{triangles[0].a_index, triangles[0].b_index, triangles[0].c_index};
+    EXPECT_THAT(valid_indices, ::testing::UnorderedElementsAre(0, 1, 2));
+    EXPECT_EQ(triangles[1].ax, invalid_index);
+    EXPECT_EQ(triangles[1].a_index, -1);
 }
 
 // NOLINTNEXTLINE

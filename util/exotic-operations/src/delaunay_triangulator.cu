@@ -13,289 +13,171 @@
  */
 #include "delaunay_triangulator.cuh"
 
-#include "delaunay_triangle2D.h"
+#include <limits>
+
 #include "cuda_util.h"
 
-namespace alus{
-namespace delaunay{
+namespace {
 
-inline __device__ int GetBIndex(DelaunayTriangle2Dgpu *triangles, int my_index, int last_point, double closest_x, double closest_y, int current_triangle){
-    DelaunayTriangle2Dgpu temp_triangle;
-    double closest_distance;
-    int closest_index;
-    double comparable_distance;
+struct Point {
+    double x;
+    double y;
+    int index;
+    bool valid;
+};
 
-    if(current_triangle == -1){
-        return last_point;
+__device__ Point LoadPoint(const double* x_coords, double x_multiplier, const double* y_coords, double y_multiplier,
+                           int index, double invalid_index) {
+    const double x = x_coords[index];
+    const double y = y_coords[index];
+    return {x * x_multiplier, y * y_multiplier, index,
+            x != invalid_index && y != invalid_index && isfinite(x) && isfinite(y)};
+}
+
+__device__ double Orient2d(const Point& a, const Point& b, const Point& c) {
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+__device__ double InCircle(const Point& a, const Point& b, const Point& c, const Point& d) {
+    const double adx = a.x - d.x;
+    const double ady = a.y - d.y;
+    const double bdx = b.x - d.x;
+    const double bdy = b.y - d.y;
+    const double cdx = c.x - d.x;
+    const double cdy = c.y - d.y;
+
+    return (adx * adx + ady * ady) * (bdx * cdy - bdy * cdx) +
+           (bdx * bdx + bdy * bdy) * (cdx * ady - cdy * adx) +
+           (cdx * cdx + cdy * cdy) * (adx * bdy - ady * bdx);
+}
+
+__device__ void SetInvalid(alus::delaunay::DelaunayTriangle2D* triangle, double invalid_index) {
+    triangle->ax = invalid_index;
+    triangle->ay = invalid_index;
+    triangle->bx = invalid_index;
+    triangle->by = invalid_index;
+    triangle->cx = invalid_index;
+    triangle->cy = invalid_index;
+    triangle->a_index = -1;
+    triangle->b_index = -1;
+    triangle->c_index = -1;
+}
+
+__device__ bool SetTriangle(const Point& a, Point b, Point c, alus::delaunay::DelaunayTriangle2D* triangle) {
+    const double orientation = Orient2d(a, b, c);
+    if (orientation == 0.0 || !isfinite(orientation)) {
+        return false;
+    }
+    if (orientation < 0.0) {
+        const Point temp = b;
+        b = c;
+        c = temp;
     }
 
-
-    temp_triangle = triangles[current_triangle];
-    const double b_distance = sqrt(pow(temp_triangle.bx - closest_x, 2) + pow(temp_triangle.by - closest_y, 2));
-    const double c_distance = sqrt(pow(temp_triangle.cx - closest_x, 2) + pow(temp_triangle.cy - closest_y, 2));
-    closest_distance = (b_distance < c_distance) * b_distance + (b_distance >= c_distance) * c_distance;
-    closest_index = (b_distance < c_distance) * temp_triangle.b_index + (b_distance >= c_distance) * temp_triangle.c_index;
-    while(temp_triangle.previous != -1){
-        printf("previous is %d \n", temp_triangle.previous);
-        temp_triangle = triangles[temp_triangle.previous];
-
-        comparable_distance = sqrt(pow(temp_triangle.bx - closest_x, 2) + pow(temp_triangle.by - closest_y, 2));
-        closest_index = (closest_distance < comparable_distance) * closest_index + (closest_distance >= comparable_distance) * temp_triangle.b_index;
-        closest_distance = (closest_distance < comparable_distance) * closest_distance + (closest_distance >= comparable_distance) * comparable_distance;
-
-        comparable_distance = sqrt(pow(temp_triangle.cx - closest_x, 2) + pow(temp_triangle.cy - closest_y, 2));
-        closest_index = (closest_distance < comparable_distance) * closest_index + (closest_distance >= comparable_distance) * temp_triangle.c_index;
-        closest_distance = (closest_distance < comparable_distance) * closest_distance + (closest_distance >= comparable_distance) * comparable_distance;
-    }
-    return closest_index;
-
-
-
+    triangle->ax = a.x;
+    triangle->ay = a.y;
+    triangle->bx = b.x;
+    triangle->by = b.y;
+    triangle->cx = c.x;
+    triangle->cy = c.y;
+    triangle->a_index = a.index;
+    triangle->b_index = b.index;
+    triangle->c_index = c.index;
+    return true;
 }
 
-inline __device__ unsigned int GetNewTriangleIndex(unsigned int *empty_triangle_index, unsigned int size){
-    /*
-     * reads the 32-bit word "old" located at the address address in global or shared memory, computes
-     * ((old >= val) ? 0 : (old+1)), and stores the result back to memory at the same address.
-     * These three operations are performed in one atomic transaction. The function returns "old".
-     */
-    unsigned int result = atomicInc(empty_triangle_index, size +1);
-    //printf("making new triangle from %d and %d. Got %d \n", *empty_triangle_index, size+1, result);
-    return result;
-}
-
-/**
- * Finds the point where 2 straights meet.
- * @param straight1
- * @param straight2
- * @param x
- * @param y
- */
-inline __device__ void StraightIntersectionPoint(StraightEquation2D straight1, StraightEquation2D straight2, double *x, double *y){
-    *x = (straight1.c - straight2.c) / (straight2.m - straight1.m);
-    *y = straight1.m * (*x) + straight1.c;
-}
-
-/**
- * If point a is situated on a straight made from points 1 and 2, then is point a between points 1 and 2?
- * @param x1 x coord for point 1
- * @param y1 y coord for point 1
- * @param x2 x coord for point 2
- * @param y2 y coord for point 2
- * @param ax x coord for point a
- * @param ay y coord for point a
- * @return returns 1 if the point is between the 2 and 0 if not.
- */
-inline __device__ int IsPointBetween2(double x1, double y1, double x2, double y2, double ax, double ay){
-    const double distEtalon = sqrt(pow(x1-x2, 2) + pow(y1-y2, 2));
-
-    const double dist1 = sqrt(pow(x1-ax, 2) + pow(y1-ay, 2));
-    const double dist2 = sqrt(pow(x2-ax, 2) + pow(y2-ay, 2));
-
-    return (dist1 < distEtalon) && (dist2 < distEtalon);
-}
-
-/**
- * Creates an equation of straight for the current 2 points.
- * @param x1
- * @param y1
- * @param x2
- * @param y2
- * @return
- */
-inline __device__ StraightEquation2D StraightEquation(double x1, double y1, double x2, double y2){
-    StraightEquation2D result;
-    double const uy = y2-y1;
-    double const ux = x2-x1;
-    //ux(y-y1) = uy(x-x1); y-y1 = uy(x-x1)/ux; y= uy(x-x1)/ux + y1
-    result.m = uy/ux;
-    result.c = uy*(-x1)/ux + y1;
-    return result;
-}
-/**
- * Calculates if this point has not yet been accepted into the perimeter set and is in view of the origin point.
- * The last part means that a straight formed between that point and the origin point must not pass between any of
- * the points already added to the set.
- * @param point_index
- * @param px
- * @param py
- * @param triangles
- * @param latest_triangle
- * @return
- */
-inline __device__ int IsPointStrangerAndInView(int point_index, double px, double py, DelaunayTriangle2Dgpu *triangles, int latest_triangle){
-    DelaunayTriangle2Dgpu temp_triangle;
-    int point_score = 0;
-    int between_score = 0;
-    double temp_x, temp_y;
-    StraightEquation2D temp_straight;
-
-    //no points in the set
-    if(latest_triangle == -1){
-        return 1;
+__global__ void DelaunayTriangulation(const double* x_coords, double x_multiplier, const double* y_coords,
+                                      double y_multiplier, int width, int height, double invalid_index,
+                                      alus::delaunay::DelaunayTriangle2D* triangles) {
+    const size_t cell_index = threadIdx.x + static_cast<size_t>(blockDim.x) * blockIdx.x;
+    const size_t cell_count = static_cast<size_t>(width - 1) * (height - 1);
+    if (cell_index >= cell_count) {
+        return;
     }
 
-    do {
-        temp_triangle = triangles[latest_triangle];
-        point_score = (temp_triangle.b_index == point_index) + (temp_triangle.c_index == point_index);
+    const int row = static_cast<int>(cell_index / (width - 1));
+    const int column = static_cast<int>(cell_index % (width - 1));
+    const int upper_left = row * width + column;
+    const Point points[4] = {
+        LoadPoint(x_coords, x_multiplier, y_coords, y_multiplier, upper_left, invalid_index),
+        LoadPoint(x_coords, x_multiplier, y_coords, y_multiplier, upper_left + 1, invalid_index),
+        LoadPoint(x_coords, x_multiplier, y_coords, y_multiplier, upper_left + width + 1, invalid_index),
+        LoadPoint(x_coords, x_multiplier, y_coords, y_multiplier, upper_left + width, invalid_index),
+    };
 
-        if (!point_score){
-            temp_straight = StraightEquation(temp_triangle.ax, temp_triangle.ay, px, py);
-            StraightIntersectionPoint(temp_triangle.bc_equation,
-                                      temp_straight,
-                                      &temp_x,
-                                      &temp_y);
-            //TODO: are straights parallel to those of owner to slaves?
-            between_score = IsPointBetween2(temp_triangle.ax, temp_triangle.ay, px, py, temp_x, temp_y);
+    auto* first_triangle = triangles + cell_index * 2;
+    auto* second_triangle = first_triangle + 1;
+    SetInvalid(first_triangle, invalid_index);
+    SetInvalid(second_triangle, invalid_index);
+
+    Point valid_points[4];
+    int valid_count = 0;
+    for (const Point& point : points) {
+        if (point.valid) {
+            valid_points[valid_count++] = point;
         }
-        printf("comparing %d %d %d to %d and got point score %d, between score %d. BC straight %f %f, temp straight %f %f  Straight intersected at %f %f\n",
-               temp_triangle.a_index,
-               temp_triangle.b_index,
-               temp_triangle.c_index,
-               point_index,
-               point_score,
-               between_score,
-               temp_triangle.bc_equation.m,
-               temp_triangle.bc_equation.c,
-               temp_straight.m,
-               temp_straight.c,
-               temp_x,
-               temp_y);
-        latest_triangle = temp_triangle.previous;
-    }while(latest_triangle != -1 && point_score == 0 && between_score == 0);
+    }
 
-    //printf("point score %d, between score %d\n", !point_score, !between_score);
-    return !(point_score || between_score);
-    /*if(ps == 0 && bs == 0) yes;
-    if(ps == 1 && bs == 0) no;
-    if(ps == 0 && bs == 1) no;
-    if(ps == 1 && bs == 1) no;*/
+    if (valid_count == 3) {
+        if (!SetTriangle(valid_points[0], valid_points[1], valid_points[2], first_triangle)) {
+            SetInvalid(first_triangle, invalid_index);
+        }
+        return;
+    }
+    if (valid_count != 4) {
+        return;
+    }
+
+    const double orientation_0 = Orient2d(points[0], points[1], points[2]);
+    const double orientation_1 = Orient2d(points[1], points[2], points[3]);
+    const double orientation_2 = Orient2d(points[2], points[3], points[0]);
+    const double orientation_3 = Orient2d(points[3], points[0], points[1]);
+    const bool convex_positive =
+        orientation_0 > 0.0 && orientation_1 > 0.0 && orientation_2 > 0.0 && orientation_3 > 0.0;
+    const bool convex_negative =
+        orientation_0 < 0.0 && orientation_1 < 0.0 && orientation_2 < 0.0 && orientation_3 < 0.0;
+    if (!convex_positive && !convex_negative) {
+        return;
+    }
+
+    const bool use_other_diagonal = orientation_0 * InCircle(points[0], points[1], points[2], points[3]) > 0.0;
+    bool first_valid;
+    bool second_valid;
+    if (use_other_diagonal) {
+        first_valid = SetTriangle(points[0], points[1], points[3], first_triangle);
+        second_valid = SetTriangle(points[1], points[2], points[3], second_triangle);
+    } else {
+        first_valid = SetTriangle(points[0], points[1], points[2], first_triangle);
+        second_valid = SetTriangle(points[0], points[2], points[3], second_triangle);
+    }
+    if (!first_valid || !second_valid) {
+        SetInvalid(first_triangle, invalid_index);
+        SetInvalid(second_triangle, invalid_index);
+    }
 }
 
+}  // namespace
 
+namespace alus::delaunay {
 
-/**
- * Enter the coordinates of the points in the set and prepare to receive the triangles back in an array.
- * Keep in mind that every triangle is in triple, which means that the output array has 3 times more elements than the inputs.
- * It is the caller's duty to check that coordinate arrays have 3 or more elements.
- * @param x_coords
- * @param y_coords
- * @param height
- * @param width
- * @param triangles
- */
-__global__ void DelaunayTriangulation(double *x_coords, double *y_coords, const int width, const int height,
-                                      DelaunayTriangle2Dgpu *triangles,unsigned int *empty_triangle_index){
-    const int idx = threadIdx.x + (blockDim.x * blockIdx.x);
-    const int idy = threadIdx.y + (blockDim.y * blockIdx.y);
-    const int arr_size = width*height;
-    double closest_distance, comparable_distance;
-    double comparable_x, comparable_y;
-    int closest_distance_index;
-    int current_triangle = -1;
-    int last_point = -1; //the last point added to the set before the current point.
-    int i=0, temp_index;
-    DelaunayTriangle2Dgpu temp_triangle;
-    int closest_distance_found = 0;
+cudaError_t LaunchDelaunayTriangulation(const double* x_coords, double x_multiplier, const double* y_coords,
+                                        double y_multiplier, int width, int height, double invalid_index,
+                                        DelaunayTriangle2D* triangles) {
+    if (width < 2 || height < 2) {
+        return cudaSuccess;
+    }
 
-    if(idx < width && idy < height){
-        const int my_index = idx + idy *width;
-        const double my_x = x_coords[my_index];
-        const double my_y = y_coords[my_index];
+    const size_t cell_count = static_cast<size_t>(width - 1) * static_cast<size_t>(height - 1);
+    if (cell_count > std::numeric_limits<int>::max() || x_coords == nullptr || y_coords == nullptr ||
+        triangles == nullptr) {
+        return cudaErrorInvalidValue;
+    }
 
-        //for(int j=0; j<5; j++) {
-        for(int j=0; j<(arr_size-1); j++) {
-
-            closest_distance_found = 0;
-            for (i = 0; i < arr_size; i++) {
-                comparable_x = x_coords[i];
-                comparable_y = y_coords[i];
-                if (i == my_index || i == last_point || !IsPointStrangerAndInView(i, comparable_x, comparable_y, triangles, current_triangle)) {
-                    //if(idx == 1)
-                    //printf("Rejected point %f %f %d with owner %d\n", comparable_x, comparable_y,i, my_index);
-                    continue;
-                }
-                //TODO: make sure that the comparable point does not cross an already drawn straight between its 2 points.
-
-                comparable_distance = sqrt(pow(my_x - comparable_x, 2) + pow(my_y - comparable_y, 2));
-                if(closest_distance_found) {
-                    if (comparable_distance < closest_distance) {
-                        closest_distance = comparable_distance;
-                        closest_distance_index = i;
-                    }
-                }else{
-                    closest_distance_found = 1;
-                    closest_distance = comparable_distance;
-                    closest_distance_index = i;
-                }
-            } //inner loop
-            if(!closest_distance_found){
-                break; // we are done. No more valid points available.
-            }
-
-            if (last_point == -1) {
-                last_point = closest_distance_index;
-            } else {
-
-                temp_triangle.previous = current_triangle;
-                comparable_x = x_coords[closest_distance_index];
-                comparable_y = y_coords[closest_distance_index];
-                temp_index = GetBIndex(triangles, my_index, last_point, comparable_x, comparable_y, current_triangle);
-
-                temp_triangle.owner = my_index;
-                temp_triangle.ax = my_x;
-                temp_triangle.ay = my_y;
-                temp_triangle.a_index = my_index;
-                temp_triangle.bx = x_coords[temp_index];
-                temp_triangle.by = y_coords[temp_index];
-                temp_triangle.b_index = temp_index;
-                temp_triangle.cx = comparable_x;
-                temp_triangle.cy = comparable_y;
-                temp_triangle.c_index = closest_distance_index;
-                temp_triangle.bc_equation = StraightEquation(temp_triangle.bx, temp_triangle.by, temp_triangle.cx, temp_triangle.cy);
-
-
-                current_triangle = (int)GetNewTriangleIndex(empty_triangle_index, 3*(arr_size-2));
-                printf("getting a new index for triangle %d \n", current_triangle);
-                triangles[current_triangle] = temp_triangle;
-                //TODO: it will not work this way. Sometimes we draw a triangle that is incorrect.
-                // So after drawing one we need to check if there are any points that fall into its circumcircle.
-                // If there are, find the closest in view (IsPointBetween2) and turn that one into 2 triangles(flip).
-                // Do not make a new check for those 2. Someone will draw the right triangle. Later reduce out all
-                // incorrect triangles and all duplicates.
-
-                //TODO: Did I tell you that you need to keep the triangles in counter clockwise orderwhen marking
-                // them down? This is needed for circumcircle calculations.
-
-                //TODO: Memory is a problem. A set can have 2n -2 -b triangles, where n is the nr of points and b is
-                // the nr of vertices on a convex hull. However we will not be calculating the convex hull vertices,
-                // as we do not have the time. So we will have to think that we will make 2n triangles and 6n in this
-                // algorithm, as every one will be reported 3 times.
-                last_point = closest_distance_index;
-            }//if last_point
-        }//outer loop
-    } //deciding if
-
+    constexpr int block_size = 256;
+    const int grid_size = cuda::GetGridDim(block_size, static_cast<int>(cell_count));
+    DelaunayTriangulation<<<grid_size, block_size>>>(x_coords, x_multiplier, y_coords, y_multiplier, width, height,
+                                                     invalid_index, triangles);
+    return cudaGetLastError();
 }
 
-cudaError_t LaunchDelaunayTriangulation(double *x_coords, double *y_coords, const int width, const int height, DelaunayTriangle2Dgpu *triangles){
-    dim3 block_size(20,20); //TODO: relook this number, as the computation itself is 1D.
-    dim3 grid_size(cuda::GetGridDim(20, width), cuda::GetGridDim(20, height));
-
-    unsigned int *empty_triangle_index;
-    unsigned int zero = 0;
-
-    //if something as simple as this fails, kill everything now! The system is probably toast.
-    CHECK_CUDA_ERR(cudaMalloc((void**)&empty_triangle_index, sizeof(unsigned int)));
-    CHECK_CUDA_ERR(cudaMemcpy(empty_triangle_index, &zero, sizeof(unsigned int), cudaMemcpyHostToDevice));
-
-    DelaunayTriangulation<<<grid_size, block_size>>>(x_coords, y_coords, width, height, triangles, empty_triangle_index);
-
-    cudaError_t result = cudaGetLastError();
-    CHECK_CUDA_ERR(cudaFree(empty_triangle_index));
-
-    return result;
-}
-
-}//namespace
-}//namespace
+}  // namespace alus::delaunay

@@ -13,12 +13,10 @@
  */
 #include "backgeocoding_controller.h"
 
-#include <chrono>
 #include <cstdint>
 #include <map>
 #include <memory>
 #include <string_view>
-#include <thread>
 
 #include "alus_log.h"
 #include "dem_property.h"
@@ -28,7 +26,6 @@
 #include "snap-core/core/util/product_utils.h"
 #include "snap-engine-utilities/engine-utilities/datamodel/metadata/abstract_metadata.h"
 #include "snap-engine-utilities/engine-utilities/gpf/stack_utils.h"
-#include "tile_queue.h"
 
 namespace alus::backgeocoding {
 
@@ -94,7 +91,7 @@ PositionComputeResults BackgeocodingController::PositionCompute(int m_burst_inde
     PositionComputeResults result;
     result.slave_area =
         backgeocoding_->PositionCompute(m_burst_index, s_burst_index, target_area, device_x_points, device_y_points);
-    result.demod_size = result.slave_area.width * result.slave_area.height;
+    result.demod_size = static_cast<size_t>(result.slave_area.width) * result.slave_area.height;
 
     return result;
 }
@@ -122,48 +119,19 @@ void BackgeocodingController::WriteOutputs(Rectangle output_area, float* i_maste
 void BackgeocodingController::DoWork() {
     WorkerParams params;
     exceptions_thrown_ = 0;
+    exceptions_.clear();
     const int slave_burst_offset = backgeocoding_->GetBurstOffset();
-
-    std::vector<BackgeocodingController::BackgeocodingWorker> workers;
-    const int recommended_width = recommended_tile_area_ / lines_per_burst_;
-    int worker_count = 0;
-    params.index = 0;
 
     for (int burst_index = 0; burst_index < num_of_bursts_; burst_index++) {
         const int first_line_idx = burst_index * lines_per_burst_;
-
-        for (int sample_index = 0; sample_index < samples_per_burst_; sample_index += recommended_width) {
-            const int actual_width = (sample_index + recommended_width < samples_per_burst_)
-                                         ? recommended_width
-                                         : samples_per_burst_ - sample_index;
-            params.index++;
-            params.master_input_area = {sample_index, first_line_idx, actual_width, lines_per_burst_};
-            params.slave_burst_index = burst_index + slave_burst_offset;
-            params.master_burst_index = burst_index;
-            worker_count++;
-            workers.emplace_back(params, this);
+        params.index = burst_index + 1;
+        params.master_input_area = {0, first_line_idx, samples_per_burst_, lines_per_burst_};
+        params.slave_burst_index = burst_index + slave_burst_offset;
+        params.master_burst_index = burst_index;
+        BackgeocodingWorker(params, this).Work();
+        if (exceptions_thrown_) {
+            break;
         }
-    }
-
-    ThreadSafeTileQueue<BackgeocodingWorker> queue(std::move(workers));
-    std::vector<std::thread> threads_vec;
-
-    // Backgeocoding does a lot of things on cpu, 2 x input datasets, 4 x output datasets, partial CPU triangulation
-    // this number should be double checked if further optimizations are made
-    const int n_worker_threads = 9;
-    threads_vec.reserve(n_worker_threads);
-
-    for (int i = 0; i < n_worker_threads; i++) {
-        threads_vec.emplace_back([&queue]() {
-            BackgeocodingWorker worker;
-            while (queue.PopFront(worker)) {
-                worker.Work();
-            }
-        });
-    }
-
-    for (auto& thread : threads_vec) {
-        thread.join();
     }
     LOGV << "Final block reached.";
     if (exceptions_thrown_) {

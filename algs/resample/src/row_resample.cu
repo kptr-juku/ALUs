@@ -14,6 +14,7 @@
 
 #include "row_resample.h"
 
+#include <algorithm>
 #include <cmath>
 
 #include "cuda_ptr.h"
@@ -28,7 +29,7 @@ __host__ __device__ inline void InterpolatePixelValue(int x, const float* in, in
     const auto start_dist = (x * in_size) / static_cast<double>(out_size);
     const auto end_dist = ((x + 1) * in_size) / static_cast<double>(out_size);
     const auto in_index1 = static_cast<int>(start_dist);  // Floor it.
-    const auto in_index2 = static_cast<int>(end_dist);
+    const auto in_index2 = std::min(static_cast<int>(end_dist), in_size - 1);
     double index1_factor;
     double index2_factor;
     if (in_index1 == in_index2) {

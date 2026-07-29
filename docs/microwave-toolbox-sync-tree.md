@@ -136,6 +136,8 @@ Current status: core IW parsing, GRD range-vector fallback, azimuth-time interpo
 | `algs/backgeocoding/src/deramp_demod.cu` | `BackGeocodingOp.performDerampDemod` and `Sentinel1Utils` helpers | `BackGeocodingOp.performDerampDemod` and `Sentinel1Utils` helpers | Deramp/demod phase consistency |
 | `algs/backgeocoding/src/bilinear.cu` | `BackGeocodingOp.performInterpolation` | `BackGeocodingOp.performInterpolation` | Interpolation and no-data behavior |
 
+Current implementation note: backgeocoding now deliberately uses a CUDA DEM-grid constrained Delaunay triangulation rather than SNAP's global point-set Delaunay. The semantic, numerical, performance, and validation differences are recorded in [`backgeocoding-cuda-constrained-delaunay.md`](backgeocoding-cuda-constrained-delaunay.md).
+
 ### Coherence
 
 | ALUs path | Legacy S1TBX source | Current Microwave Toolbox source | Review focus |

@@ -38,7 +38,8 @@ void BackgeocodingController::BackgeocodingWorker::Work() {
     }
 
     try {
-        const size_t tile_size = params_.master_input_area.width * params_.master_input_area.height;
+        const size_t tile_size =
+            static_cast<size_t>(params_.master_input_area.width) * params_.master_input_area.height;
         std::vector<int16_t> master_tile_i(tile_size);
         std::vector<int16_t> master_tile_q(tile_size);
         controller_->ReadMaster(params_.master_input_area, master_tile_i.data(), master_tile_q.data());

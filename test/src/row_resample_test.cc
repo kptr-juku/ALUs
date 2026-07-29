@@ -11,15 +11,22 @@
  * You should have received a copy of the GNU General Public License along
  * with this program; if not, see http://www.gnu.org/licenses/
  */
-#pragma once
+#include <limits>
+#include <vector>
 
-namespace alus {  // NOLINT
-namespace delaunay {
+#include "gmock/gmock.h"
 
-struct DelaunayTriangle2D {
-    double ax, ay, bx, by, cx, cy;
-    int a_index, b_index, c_index;  // snap logic requires those points traced.
-};
+#include "row_resample.h"
 
-}  // namespace delaunay
-}  // namespace alus
+namespace {
+
+TEST(RowResample, ReplicatesLastInputPixelWithoutReadingPastLine) {
+    std::vector<float> input{1.0F, 2.0F, 3.0F, std::numeric_limits<float>::quiet_NaN()};
+    std::vector<float> output(6);
+
+    alus::rowresample::FillLineFrom(input.data(), input.size() - 1, output.data(), output.size());
+
+    EXPECT_THAT(output, ::testing::ElementsAre(1.0F, 1.0F, 2.0F, 2.0F, 3.0F, 3.0F));
+}
+
+}  // namespace

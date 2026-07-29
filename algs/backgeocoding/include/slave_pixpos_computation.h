@@ -50,7 +50,7 @@ struct SlavePixPosData {
     double dem_no_data_value;
     bool mask_out_area_without_elevation;
 
-    size_t* device_valid_index_counter;
+    int* device_valid_index_counter;
     double *device_master_az, *device_master_rg;
     double *device_slave_az, *device_slave_rg;
     double *device_lats, *device_lons;

@@ -46,7 +46,8 @@ inline __device__ bool GetPosition(s1tbx::DeviceSubswathInfo* subswath_info,
         s1tbx::sargeocoding::GetZeroDopplerTime(sentinel1_utils->line_time_interval, sentinel1_utils->wavelength,
                                                 position_data->earth_point, orbit, num_orbit_vec, dt);
 
-    if (zero_doppler_time_in_days == s1tbx::sargeocoding::NON_VALID_ZERO_DOPPLER_TIME) {
+    if (!isfinite(zero_doppler_time_in_days) ||
+        zero_doppler_time_in_days == s1tbx::sargeocoding::NON_VALID_ZERO_DOPPLER_TIME) {
         return false;
     }
 
@@ -75,6 +76,10 @@ inline __device__ bool GetPosition(s1tbx::DeviceSubswathInfo* subswath_info,
     const double SLANT_RANGE = s1tbx::sargeocoding::ComputeSlantRangeImpl(
         zero_doppler_time_in_days, orbit_vectors, position_data->earth_point, position_data->sensor_pos);
 
+    if (!isfinite(SLANT_RANGE)) {
+        return false;
+    }
+
     if (!sentinel1_utils->srgr_flag) {
         position_data->range_index =
             (SLANT_RANGE - subswath_info->slr_time_to_first_pixel * snapengine::eo::constants::LIGHT_SPEED) /
@@ -90,7 +95,7 @@ inline __device__ bool GetPosition(s1tbx::DeviceSubswathInfo* subswath_info,
         position_data->range_index = sentinel1_utils->source_image_width - 1 - position_data->range_index;
     }
 
-    return true;
+    return isfinite(position_data->azimuth_index) && isfinite(position_data->range_index);
 }
 
 __device__ inline BurstIndices GetBurstIndices(double line_time_interval, double wavelength, int num_of_bursts,

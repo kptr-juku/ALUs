@@ -28,7 +28,8 @@ __global__ void ElevationMask(ElevationMaskData data) {
     const size_t idx = threadIdx.x + (blockDim.x * blockIdx.x);
 
     if (idx < data.size) {
-        if (data.device_x_points[idx] == INVALID_INDEX || data.device_y_points[idx] == INVALID_INDEX) {
+        if (data.device_x_points[idx] == INVALID_INDEX || data.device_y_points[idx] == INVALID_INDEX ||
+            !isfinite(data.device_x_points[idx]) || !isfinite(data.device_y_points[idx])) {
             data.device_x_points[idx] = INVALID_INDEX;
             data.device_y_points[idx] = INVALID_INDEX;
             return;
@@ -48,7 +49,7 @@ __global__ void ElevationMask(ElevationMaskData data) {
             data.device_x_points[idx] = INVALID_INDEX;
             data.device_y_points[idx] = INVALID_INDEX;
         } else {
-            (*data.not_null_counter)++;  // race condition is not important here.
+            atomicExch(data.not_null_counter, 1);
         }
     }
 }

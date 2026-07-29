@@ -71,28 +71,25 @@ __global__ void SlavePixPos(SlavePixPosData calc_data) {
                                                                          calc_data.max_lons, calc_data.egm);
     }
 
-    if (alt != calc_data.dem_no_data_value && valid_coord) {
+    if (alt != calc_data.dem_no_data_value && isfinite(alt) && valid_coord) {
         snapengine::geoutils::Geo2xyzWgs84Impl(geo_pos_lat, geo_pos_lon, alt, pos_data.earth_point);
 
         if (GetPosition(calc_data.device_master_subswath, calc_data.device_master_utils, calc_data.m_burst_index,
                         &pos_data, calc_data.device_master_orbit_state_vectors, calc_data.nr_of_master_vectors,
                         calc_data.master_dt, idx, idy)) {
-            calc_data.device_master_az[my_index] = pos_data.azimuth_index;
-            calc_data.device_master_rg[my_index] = pos_data.range_index;
+            const double master_azimuth_index = pos_data.azimuth_index;
+            const double master_range_index = pos_data.range_index;
 
             if (GetPosition(calc_data.device_slave_subswath, calc_data.device_slave_utils, calc_data.s_burst_index,
                             &pos_data, calc_data.device_slave_orbit_state_vectors, calc_data.nr_of_slave_vectors,
                             calc_data.slave_dt, idx, idy)) {
+                calc_data.device_master_az[my_index] = master_azimuth_index;
+                calc_data.device_master_rg[my_index] = master_range_index;
                 calc_data.device_slave_az[my_index] = pos_data.azimuth_index;
                 calc_data.device_slave_rg[my_index] = pos_data.range_index;
-
-                // race condition is not important. we need to know that we have atleast 1 valid index.
-                (*calc_data.device_valid_index_counter)++;
+                atomicExch(calc_data.device_valid_index_counter, 1);
             }
         }
-    } else {
-        calc_data.device_master_az[calc_data.num_pixels * idx + idy] = INVALID_INDEX;
-        calc_data.device_master_rg[calc_data.num_pixels * idx + idy] = INVALID_INDEX;
     }
 }
 

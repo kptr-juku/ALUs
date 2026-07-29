@@ -32,6 +32,7 @@ list(APPEND TEST_SOURCES
         src/metadata_element_test.cc
         src/metadata_attribute_test.cc
         src/delaunay_test.cc
+        src/row_resample_test.cc
         src/triangular_interpolation_test.cc
         src/burst_indices_test.cc
         src/burst_indices_kernels.cu

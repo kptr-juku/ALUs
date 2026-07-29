@@ -36,10 +36,11 @@ inline __device__ int GetSamples(PointerArray* tiles, int* x, int* y, double* sa
             const int tile_x_index = (int)(x[xI] * dem_prop->tile_pixel_count_inverted_x);
 
             const int samples_index = i * width + j;
+            samples[samples_index] = CUDART_NAN;
             // make sure that the tile requested is actually listed
-            if (tile_x_index > static_cast<int>(dem_prop->grid_tile_count_x) || tile_x_index < 0 ||
-                tile_y_index > static_cast<int>(dem_prop->grid_tile_count_y) || tile_y_index < 0) {
-                samples[samples_index] = CUDART_NAN;
+            if (tile_x_index >= static_cast<int>(dem_prop->grid_tile_count_x) || tile_x_index < 0 ||
+                tile_y_index >= static_cast<int>(dem_prop->grid_tile_count_y) || tile_y_index < 0) {
+                samples[0] = CUDART_NAN;
                 all_valid = 0;
                 ++j;
                 continue;
@@ -47,15 +48,23 @@ inline __device__ int GetSamples(PointerArray* tiles, int* x, int* y, double* sa
             const int pixel_x = x[xI] - tile_x_index * dem_prop->tile_pixel_count_x;
             const int tile_pixel_index = pixel_x + tile_pixel_count_x * pixel_y;
             const int tile_id = tile_x_index * 1000 + tile_y_index + 1;
+            bool tile_found = false;
             for (int tile_i = 0; tile_i < (int)tiles->size; tile_i++) {
                 if (tiles->array[tile_i].id == tile_id) {
                     const float* array = (float*)tiles->array[tile_i].pointer;
                     const float value = array[tile_pixel_index];
                     samples[samples_index] = value;
+                    tile_found = true;
                     break;
                 }
             }
 
+            if (!tile_found) {
+                samples[0] = CUDART_NAN;
+                all_valid = 0;
+                ++j;
+                continue;
+            }
             if (samples[samples_index] == dem_prop->no_data_value) {
                 samples[samples_index] = CUDART_NAN;
                 all_valid = 0;
@@ -75,7 +84,7 @@ inline __device__ double CopDemCog30mGetElevation(double geo_pos_lat, double geo
 
     const Property* dp = dem_prop;
     if (dp == nullptr) {
-        return dem_prop->no_data_value;
+        return CUDART_NAN;
     }
 
     double pixel_y = (dp->grid_max_lat - geo_pos_lat) * dp->tile_pixel_size_deg_inverted_y;

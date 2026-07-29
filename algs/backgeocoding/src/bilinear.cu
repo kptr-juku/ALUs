@@ -84,7 +84,8 @@ __global__ void BilinearInterpolation(double* x_pixels, double* y_pixels, double
     const double x = x_pixels[thread_data_index];
     const double y = y_pixels[thread_data_index];
 
-    if ((x == INVALID_INDEX && y == INVALID_INDEX) || !(y >= params.subswath_start && y < params.subswath_end)) {
+    if (x == INVALID_INDEX || y == INVALID_INDEX || !isfinite(x) || !isfinite(y) ||
+        !(y >= params.subswath_start && y < params.subswath_end)) {
         results_i[thread_data_index] = params.no_data_value;
         results_q[thread_data_index] = params.no_data_value;
     } else {
@@ -104,11 +105,11 @@ __global__ void BilinearInterpolation(double* x_pixels, double* y_pixels, double
             sincos(sample_phase, &sin_phase, &cos_phase);
             reramp_remod_i = sample_i * cos_phase + sample_q * sin_phase;
             reramp_remod_q = -sample_i * sin_phase + sample_q * cos_phase;
-            results_i[thread_data_index] = reramp_remod_i;
-            results_q[thread_data_index] = reramp_remod_q;
+            results_i[thread_data_index] = isfinite(reramp_remod_i) ? reramp_remod_i : params.no_data_value;
+            results_q[thread_data_index] = isfinite(reramp_remod_q) ? reramp_remod_q : params.no_data_value;
         } else {
-            results_i[thread_data_index] = sample_i;
-            results_q[thread_data_index] = sample_q;
+            results_i[thread_data_index] = isfinite(sample_i) ? sample_i : params.no_data_value;
+            results_q[thread_data_index] = isfinite(sample_q) ? sample_q : params.no_data_value;
         }
     }
 }
