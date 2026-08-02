@@ -52,7 +52,7 @@ ThermalNoiseInfo GetThermalNoiseInfoForGrd(std::string_view polarisation,
                                            const std::shared_ptr<snapengine::MetadataElement>& origin_metadata_root);
 
 /**
- * Fills time maps with T0 and DeltaTS values acquired from the product metadata.
+ * Fills time maps with T0, DeltaTS, and originating swath bounds acquired from the product metadata.
  *
  * This is a port of SNAP's Sentinel1RemoveThermalNoiseOP.getT0andDeltaTS() method.
  *
@@ -100,6 +100,9 @@ std::vector<s1tbx::NoiseVector> GetNoiseVectorList(
 s1tbx::NoiseVector GetBurstRangeVector(int burst_center_line,
                                        const std::vector<s1tbx::NoiseVector>& noise_range_vectors);
 
+size_t GetClosestNoiseVectorIndex(double azimuth_time,
+                                  const std::vector<s1tbx::NoiseVector>& noise_range_vectors);
+
 /**
  * Find index of the given line.
  *
@@ -118,7 +121,8 @@ device::Matrix<double> BuildNoiseLutForTOPSGRD(Rectangle tile, const ThermalNois
 cuda::KernelArray<int> CalculateBurstIndices(Rectangle tile, int lines_per_burst, ThreadData* thread_data);
 
 std::vector<size_t> DetermineNoiseVectorIndices(double start_az_time, double end_az_time,
-                                                const std::vector<s1tbx::NoiseVector>& noise_range);
+                                                 const std::vector<s1tbx::NoiseVector>& noise_range,
+                                                 const std::vector<double>& swath_start_end_times = {});
 
 void FillRangeNoiseWithInterpolatedValues(const s1tbx::NoiseVector& nv, int first_range_sample, int last_range_sample,
                                           std::vector<double>& to_compute);
@@ -137,9 +141,10 @@ void FillAzimuthNoiseVectorWithInterpolatedValues(const s1tbx::NoiseAzimuthVecto
                                                   int last_azimuth_line, std::vector<double>& to_compute);
 
 void ComputeNoiseMatrix(int tile_offset_x, int tile_offset_y, int nx0, int nx_max, int ny0, int ny_max,
-                        const std::vector<int>& noise_range_vector_line,
-                        const std::vector<std::vector<double>>& interpolated_range_vectors,
-                        const std::vector<double>& interpolated_azimuth_vector,
-                        std::vector<std::vector<double>>& values);
+                         double first_line_time, double line_time_interval,
+                         const std::vector<double>& noise_range_vector_azimuth_times,
+                         const std::vector<std::vector<double>>& interpolated_range_vectors,
+                         const std::vector<double>& interpolated_azimuth_vector,
+                         std::vector<std::vector<double>>& values);
 
 }  // namespace alus::tnr

@@ -64,6 +64,23 @@ TEST_F(ThermalNoiseKernelTest, interpolateNoiseAzimuthVector) {
     CHECK_CUDA_ERR(cudaFree(d_noise_azimuth_vector.noise_azimuth_lut.array));
 }
 
+TEST_F(ThermalNoiseKernelTest, interpolatesSingleAzimuthValueFromNonzeroLine) {
+    const alus::s1tbx::NoiseAzimuthVector noise_azimuth_vector{"IW1", 100, 0, 102, 2, {100}, {2.5F}};
+    const auto d_noise_azimuth_vector = noise_azimuth_vector.ToDeviceVector();
+
+    const auto d_interpolated =
+        tnr::LaunchInterpolateNoiseAzimuthVectorKernel(d_noise_azimuth_vector, 100, 102, 0, stream_);
+    std::vector<double> interpolated(d_interpolated.size);
+    CHECK_CUDA_ERR(cudaMemcpy(interpolated.data(), d_interpolated.array, d_interpolated.ByteSize(),
+                              cudaMemcpyDeviceToHost));
+
+    EXPECT_THAT(interpolated, ::testing::ElementsAre(2.5, 2.5, 2.5));
+
+    CHECK_CUDA_ERR(cudaFree(d_interpolated.array));
+    CHECK_CUDA_ERR(cudaFree(d_noise_azimuth_vector.lines.array));
+    CHECK_CUDA_ERR(cudaFree(d_noise_azimuth_vector.noise_azimuth_lut.array));
+}
+
 TEST_F(ThermalNoiseKernelTest, getSampleIndexTest) {
     const std::vector<alus::s1tbx::NoiseVector> noise_vectors{
         {6801.658508998079,
@@ -114,6 +131,19 @@ TEST_F(ThermalNoiseKernelTest, getSampleIndexTest) {
         CHECK_CUDA_ERR(cudaFree(vector.noise_lut.array));
     }
     CHECK_CUDA_ERR(cudaFree(d_burst_to_range_map.array));
+    CHECK_CUDA_ERR(cudaFree(d_burst_indices.array));
+}
+
+TEST_F(ThermalNoiseKernelTest, calculatesEveryBurstIntersectingTile) {
+    const alus::Rectangle tile{0, 9, 1, 12};
+
+    const auto d_burst_indices = tnr::CalculateBurstIndices(tile, 10, nullptr);
+    std::vector<int> burst_indices(d_burst_indices.size);
+    CHECK_CUDA_ERR(cudaMemcpy(burst_indices.data(), d_burst_indices.array, d_burst_indices.ByteSize(),
+                              cudaMemcpyDeviceToHost));
+
+    EXPECT_THAT(burst_indices, ::testing::ElementsAre(0, 1, 2));
+
     CHECK_CUDA_ERR(cudaFree(d_burst_indices.array));
 }
 
@@ -185,6 +215,45 @@ TEST_F(ThermalNoiseKernelTest, interpolateRangeVectorTest) {
     }
 
     CHECK_CUDA_ERR(cudaFree(d_burst_index_to_range_vector_map.array));
+}
+
+TEST_F(ThermalNoiseKernelTest, interpolatesSingleValueRangeLutAsConstant) {
+    const alus::s1tbx::NoiseVector noise_vector{1.0, 0, {10}, {42.0F}};
+    const auto d_noise_vector = noise_vector.ToDeviceVector();
+
+    alus::tnr::device::BurstIndexToRangeVectorMap d_burst_to_range_map{nullptr, 1};
+    CHECK_CUDA_ERR(cudaMalloc(&d_burst_to_range_map.array, d_burst_to_range_map.ByteSize()));
+    CHECK_CUDA_ERR(cudaMemcpy(d_burst_to_range_map.array, &d_noise_vector, d_burst_to_range_map.ByteSize(),
+                              cudaMemcpyHostToDevice));
+
+    const int burst_index{0};
+    alus::cuda::KernelArray<int> d_burst_indices{nullptr, 1};
+    CHECK_CUDA_ERR(cudaMalloc(&d_burst_indices.array, d_burst_indices.ByteSize()));
+    CHECK_CUDA_ERR(cudaMemcpy(d_burst_indices.array, &burst_index, d_burst_indices.ByteSize(), cudaMemcpyHostToDevice));
+
+    const size_t sample_index{0};
+    alus::cuda::KernelArray<size_t> d_sample_indices{nullptr, 1};
+    CHECK_CUDA_ERR(cudaMalloc(&d_sample_indices.array, d_sample_indices.ByteSize()));
+    CHECK_CUDA_ERR(cudaMemcpy(d_sample_indices.array, &sample_index, d_sample_indices.ByteSize(),
+                              cudaMemcpyHostToDevice));
+
+    const alus::Rectangle tile{5, 0, 3, 1};
+    const auto d_result = tnr::LaunchInterpolateNoiseRangeVectorsKernel(
+        tile, d_burst_indices, d_sample_indices, d_burst_to_range_map, stream_);
+    alus::cuda::KernelArray<double> d_interpolated;
+    CHECK_CUDA_ERR(cudaMemcpy(&d_interpolated, d_result.array, sizeof(d_interpolated), cudaMemcpyDeviceToHost));
+    std::vector<double> interpolated(d_interpolated.size);
+    CHECK_CUDA_ERR(cudaMemcpy(interpolated.data(), d_interpolated.array, d_interpolated.ByteSize(),
+                              cudaMemcpyDeviceToHost));
+
+    EXPECT_THAT(interpolated, ::testing::ElementsAre(42.0, 42.0, 42.0));
+
+    tnr::device::DestroyBurstIndexToInterpolatedRangeVectorMap(d_result);
+    CHECK_CUDA_ERR(cudaFree(d_sample_indices.array));
+    CHECK_CUDA_ERR(cudaFree(d_burst_indices.array));
+    CHECK_CUDA_ERR(cudaFree(d_burst_to_range_map.array));
+    CHECK_CUDA_ERR(cudaFree(d_noise_vector.noise_lut.array));
+    CHECK_CUDA_ERR(cudaFree(d_noise_vector.pixels.array));
 }
 
 TEST_F(ThermalNoiseKernelTest, CalculateNoiseMatrixTest) {

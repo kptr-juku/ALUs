@@ -123,7 +123,7 @@ include(FetchContent)
 FetchContent_Declare(
         googletest
         GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG release-1.10.0
+        GIT_TAG release-1.11.0
 )
 
 FetchContent_GetProperties(googletest)
@@ -158,6 +158,32 @@ if (ENABLE_TESTS)
             endforeach ()
         endif ()
     endif ()
+
+    enable_testing()
     add_subdirectory(test)
-    add_subdirectory(test-integration)
+
+    set(ALUS_UNIT_TEST_TARGETS
+            unit-test
+            app-unit-test
+            dem-util-test
+            feature-extraction-gabor-unit-test
+            math-util-test
+            remove-thermal-noise-unit-test
+            resample-unit-test
+            )
+
+    foreach (UNIT_TEST_TARGET IN LISTS ALUS_UNIT_TEST_TARGETS)
+        add_test(
+                NAME ${UNIT_TEST_TARGET}
+                COMMAND $<TARGET_FILE:${UNIT_TEST_TARGET}>
+                )
+        set_tests_properties(${UNIT_TEST_TARGET}
+                PROPERTIES
+                LABELS unit
+                WORKING_DIRECTORY ${ALUS_UNIT_TEST_BINARY_OUTPUT_DIR}
+                )
+    endforeach ()
+
+    # Integration tests fetch datasets listed in .alusresources, which are no longer available.
+    # add_subdirectory(test-integration)
 endif ()

@@ -160,6 +160,10 @@ public:
 
     static int AddToArray(std::vector<float>& array, int index, std::string_view csv_string, std::string_view delim);
 
+    static void AddWhitespaceSeparatedValues(std::vector<int>& values, std::string_view text);
+
+    static void AddWhitespaceSeparatedValues(std::vector<float>& values, std::string_view text);
+
     static Sentinel1Index ComputeIndex(double azimuth_time, double slant_range_time, const SubSwathInfo* subswath);
 
     static double GetLatitude(double azimuth_time, double slant_range_time, const SubSwathInfo* subswath);

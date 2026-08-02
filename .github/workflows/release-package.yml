@@ -1,0 +1,76 @@
+name: Create release package
+
+on:
+  push:
+    branches: [ "development", "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-package:
+    name: Build Ubuntu 24.04 package
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Install build dependencies
+        env:
+          ALUS_PLATFORM_BASE_URL: https://raw.githubusercontent.com/${{ github.repository_owner }}/ALUs-platform/main/ubuntu/24_04/noble
+        run: |
+          set -euo pipefail
+
+          scripts_dir="$RUNNER_TEMP/alus-platform"
+          mkdir -p "$scripts_dir"
+
+          # These are the same Noble scripts used to prepare ALUs-platform development images.
+          for script in install_cuda_base.sh setup_runtime.sh setup_dev.sh; do
+            curl --fail --silent --show-error --location \
+              "$ALUS_PLATFORM_BASE_URL/$script" \
+              --output "$scripts_dir/$script"
+            chmod +x "$scripts_dir/$script"
+          done
+
+          (
+            cd "$scripts_dir"
+
+            # CUDA compilation only needs the toolkit installed by this script, not a GPU or driver.
+            sudo env DEBIAN_FRONTEND=noninteractive ./install_cuda_base.sh
+
+            # Install the runtime libraries followed by the development tools required for packaging.
+            sudo env DEBIAN_FRONTEND=noninteractive ./setup_runtime.sh
+            sudo env DEBIAN_FRONTEND=noninteractive ./setup_dev.sh
+          )
+
+          echo "/usr/local/cuda/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build and package
+        id: build_and_package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ver_major=$(grep VERSION_MAJOR VERSION | cut -d' ' -f3)
+          ver_minor=$(grep VERSION_MINOR VERSION | cut -d' ' -f3)
+          ver_patch=$(grep VERSION_PATCH VERSION | cut -d' ' -f3)
+          package_name="alus-$ver_major-$ver_minor-$ver_patch"
+          package_filename="$package_name.tar.gz"
+          package_path="$RUNNER_TEMP/$package_filename"
+
+          "$GITHUB_WORKSPACE/build-automation/create_release_package.sh" \
+            "$GITHUB_WORKSPACE" \
+            "$package_path"
+
+          echo "package_name=$package_name" >> "$GITHUB_OUTPUT"
+          echo "package_path=$package_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.build_and_package.outputs.package_name }}
+          path: ${{ steps.build_and_package.outputs.package_path }}
+          if-no-files-found: error
+          retention-days: 30

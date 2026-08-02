@@ -29,6 +29,7 @@
 
 namespace alus::snapengine {
 class Band;
+class IGeoCoding;
 class TiePointGeoCoding;
 class Product;
 class MetadataElement;
@@ -40,8 +41,7 @@ namespace alus::s1tbx {
  */
 class Sentinel1Level1Directory : public XMLProductDirectory {
 private:
-    std::unordered_map<std::shared_ptr<snapengine::Band>, std::shared_ptr<snapengine::TiePointGeoCoding>>
-        band_geocoding_map_;
+    std::unordered_map<std::string, std::shared_ptr<snapengine::IGeoCoding>> band_geocoding_map_;
     std::unordered_map<std::string, std::string> img_band_metadata_map_;
     std::string acq_mode_ = "";
     static constexpr double NO_DATA_VALUE = 0.0;  //-9999.0;
