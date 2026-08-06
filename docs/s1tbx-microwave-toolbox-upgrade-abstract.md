@@ -95,13 +95,16 @@ The STEP forum report [Geolocation inaccuracy](https://forum.step.esa.int/t/geol
 
 ## Rolling Sync Status
 
+The ALUs implementation commits listed below are merged into `development` through
+[PR #7](https://github.com/kptr-juku/ALUs/pull/7).
+
 | Order | Sync item | Upstream reference | Current status |
 |---|---|---|---|
-| 1 | Harden SAFE manifest parsing | `d8cd6bb39`, `73e10e98b` | Submitted in ALUs `c8112e0b`; localized parser guards support wrapped/direct `xmlData` and optional orbit metadata |
-| 2 | Add annotation/dimension robustness | `a8dd51abe` | Partial by design: invalid TPG dimension guard submitted; annotation-only dimension fallback explicitly not implemented because measurement-free products are outside ALUs scope |
-| 3 | Fix IW tie-point/geocoding robustness | `d8353246c`, `f08897475`, SNAP Engine `057211babf`, `904e622ac0`, `117bd71c68` | Submitted across ALUs `c8112e0b` and `972ed881`; includes antimeridian handling, IW prefix geocoding, fine-grid output-vector fix, grid-size guards, and double subsampling |
-| 4 | Improve noise/calibration LUT parsing tolerance | `860a618515`, `e048ff875` | Submitted in ALUs `a98cb7af`: accepts `noiseLut`/`noiseRangeLut`, parses general ASCII whitespace, and validates declared and aligned LUT counts without changing TNR/calibration formulas or range-vector selection |
-| 5 | Align thermal-noise vector selection and interpolation | `8be3a2b94`, `38418ee3d`, `7be4ed8a4` | Implemented and verified locally: GRD uses swath-constrained nearest-vector fallback and azimuth-time interpolation; TOPS SLC uses original subset coordinates and `adsHeader.startTime` burst alignment; one-value LUTs are constant and sparse metadata emits warnings. The products from ALUs issues [#37](https://github.com/cgi-estonia-space/ALUs/issues/37) and [#39](https://github.com/cgi-estonia-space/ALUs/issues/39) are covered by the same fallback behavior. The supplied 2023-07-02 GRD failure completes, Virumaa remains pixel-identical to its golden, and the S1D result from `build-automation/estonia-2026-S1D-calibration.sh` has been manually verified and accepted |
+| 1 | Harden SAFE manifest parsing | `d8cd6bb39`, `73e10e98b` | Merged into `development` in ALUs `c8112e0b`; localized parser guards support wrapped/direct `xmlData` and optional orbit metadata |
+| 2 | Add annotation/dimension robustness | `a8dd51abe` | Partial by design: the invalid TPG dimension guard is merged into `development`; the annotation-only dimension fallback is explicitly not implemented because measurement-free products are outside ALUs scope |
+| 3 | Fix IW tie-point/geocoding robustness | `d8353246c`, `f08897475`, SNAP Engine `057211babf`, `904e622ac0`, `117bd71c68` | Merged into `development` in ALUs `c8112e0b` and `972ed881`; includes antimeridian handling, IW prefix geocoding, fine-grid output-vector fix, grid-size guards, and double subsampling |
+| 4 | Improve noise/calibration LUT parsing tolerance | `860a618515`, `e048ff875` | Merged into `development` in ALUs `a98cb7af`: accepts `noiseLut`/`noiseRangeLut`, parses general ASCII whitespace, and validates declared and aligned LUT counts without changing TNR/calibration formulas or range-vector selection |
+| 5 | Align thermal-noise vector selection and interpolation | `8be3a2b94`, `38418ee3d`, `7be4ed8a4` | Merged into `development` in ALUs `81d5fb6e` and verified locally: GRD uses swath-constrained nearest-vector fallback and azimuth-time interpolation; TOPS SLC uses original subset coordinates and `adsHeader.startTime` burst alignment; one-value LUTs are constant and sparse metadata emits warnings. The products from ALUs issues [#37](https://github.com/cgi-estonia-space/ALUs/issues/37) and [#39](https://github.com/cgi-estonia-space/ALUs/issues/39) are covered by the same fallback behavior. The supplied 2023-07-02 GRD failure completes, Virumaa remains pixel-identical to its golden, and the S1D result from `build-automation/estonia-2026-S1D-calibration.sh` has been manually verified and accepted |
 | 6 | Review calibration numerical behavior | Current `Sentinel1Calibrator` behavior | Reviewed and manually accepted for current IW inputs; parser changes from `a98cb7af` are retained and no additional formula changes are required |
 | 7 | ETAD-assisted IW processing | Current Microwave Toolbox ETAD reader/processing behavior | Immediate next work item and standalone IW topic |
 | 8 | Burst-based IW product processing | Current TOPSAR split/deburst/merge and burst metadata behavior | Explicitly follows ETAD |
@@ -111,10 +114,10 @@ The STEP forum report [Geolocation inaccuracy](https://forum.step.esa.int/t/geol
 
 | Topic | Status | Evidence |
 |---|---|---|
-| SAFE manifest and optional orbit metadata hardening | Implemented and submitted | ALUs `c8112e0b`; wrapped/direct `xmlData` support and guarded optional orbit nodes |
-| IW reader tie-point and geocoding robustness | Implemented and submitted | ALUs `c8112e0b`, `972ed881`; antimeridian handling, TOPSAR-prefix geocoding, generated-grid guards, double subsampling, fine-grid output fix, and reader close behavior |
-| Noise and calibration metadata parsing | Implemented and submitted | ALUs `a98cb7af`; legacy/current LUT names, general whitespace, declared-count validation, and dataset-independent tests |
-| IW thermal-noise value selection and interpolation | Implemented locally and verified | Swath-constrained GRD fallback, azimuth-time interpolation, SLC absolute burst alignment, subset-coordinate handling, one-value LUT support, contextual warnings, 26 thermal-noise tests, and successful reported-failure/partial-split runs |
+| SAFE manifest and optional orbit metadata hardening | Merged into `development` | ALUs `c8112e0b`; wrapped/direct `xmlData` support and guarded optional orbit nodes |
+| IW reader tie-point and geocoding robustness | Merged into `development` | ALUs `c8112e0b`, `972ed881`; antimeridian handling, TOPSAR-prefix geocoding, generated-grid guards, double subsampling, fine-grid output fix, and reader close behavior |
+| Noise and calibration metadata parsing | Merged into `development` | ALUs `a98cb7af`; legacy/current LUT names, general whitespace, declared-count validation, and dataset-independent tests |
+| IW thermal-noise value selection and interpolation | Merged into `development`; locally verified | ALUs `81d5fb6e`; swath-constrained GRD fallback, azimuth-time interpolation, SLC absolute burst alignment, subset-coordinate handling, one-value LUT support, contextual warnings, 26 thermal-noise tests, and successful reported-failure/partial-split runs |
 | Calibration numerical behavior | Reviewed and accepted | Current IW calibration formulas and LUT behavior are considered good; parsing compatibility remains documented in `a98cb7af` |
 | Calibration-chain verification | Completed and manually approved | Virumaa is pixel-identical to its golden; `build-automation/estonia-2026-S1D-calibration.sh` covers S1D and its changed output has been manually verified and accepted |
 

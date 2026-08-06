@@ -197,13 +197,16 @@ The queue now records explicit priority. ETAD-assisted IW processing is next, bu
 
 ### Rolling Implementation Status
 
+The ALUs implementation commits listed below are merged into `development` through
+[PR #7](https://github.com/kptr-juku/ALUs/pull/7).
+
 | Order | Proposed sync | Status | ALUs evidence / next action |
 |---|---|---|---|
-| 1 | Harden SAFE manifest parsing (`d8cd6bb39`, `73e10e98b`) | Submitted | `c8112e0b`; wrapped/direct `xmlData` support and guarded optional orbit metadata |
-| 2 | Add annotation/dimension robustness (`a8dd51abe`) | Partial by design | Invalid TPG dimension guard submitted; annotation-only dimension fallback explicitly not implemented because ALUs requires measurement data |
-| 3 | Fix IW tie-point/geocoding robustness (`d8353246c`, `f08897475`, `057211babf`, `904e622ac0`, `117bd71c68`) | Submitted | `c8112e0b`, `972ed881`; antimeridian, IW prefix geocoding, fine-grid output, grid-size, and double-subsampling fixes |
-| 4 | Improve noise/calibration LUT parsing tolerance (`860a618515`, `e048ff875`) | Submitted | `a98cb7af`; `thermal_noise_utils.cc` and `sentinel1_utils.cc` accept `noiseLut`/`noiseRangeLut`, parse general ASCII whitespace, and validate declared/aligned counts without formula or range-vector-selection changes |
-| 5 | Align thermal-noise vector selection and interpolation (`8be3a2b94`, `38418ee3d`, `7be4ed8a4`) | Implemented locally | GRD nearest-in-swath fallback resolves [#37](https://github.com/cgi-estonia-space/ALUs/issues/37) and [#39](https://github.com/cgi-estonia-space/ALUs/issues/39); range vectors interpolate by azimuth time; TOPS SLC uses original subset coordinates and start-time-aligned absolute burst indices; 26 thermal-noise tests and four real calibration executions completed |
+| 1 | Harden SAFE manifest parsing (`d8cd6bb39`, `73e10e98b`) | Merged into `development` | `c8112e0b`; wrapped/direct `xmlData` support and guarded optional orbit metadata |
+| 2 | Add annotation/dimension robustness (`a8dd51abe`) | Partial by design; merged into `development` | The invalid TPG dimension guard is implemented; the annotation-only dimension fallback is explicitly not implemented because ALUs requires measurement data |
+| 3 | Fix IW tie-point/geocoding robustness (`d8353246c`, `f08897475`, `057211babf`, `904e622ac0`, `117bd71c68`) | Merged into `development` | `c8112e0b`, `972ed881`; antimeridian, IW prefix geocoding, fine-grid output, grid-size, and double-subsampling fixes |
+| 4 | Improve noise/calibration LUT parsing tolerance (`860a618515`, `e048ff875`) | Merged into `development` | `a98cb7af`; `thermal_noise_utils.cc` and `sentinel1_utils.cc` accept `noiseLut`/`noiseRangeLut`, parse general ASCII whitespace, and validate declared/aligned counts without formula or range-vector-selection changes |
+| 5 | Align thermal-noise vector selection and interpolation (`8be3a2b94`, `38418ee3d`, `7be4ed8a4`) | Merged into `development`; locally verified | `81d5fb6e`; GRD nearest-in-swath fallback resolves [#37](https://github.com/cgi-estonia-space/ALUs/issues/37) and [#39](https://github.com/cgi-estonia-space/ALUs/issues/39); range vectors interpolate by azimuth time; TOPS SLC uses original subset coordinates and start-time-aligned absolute burst indices; 26 thermal-noise tests and four real calibration executions completed |
 | 6 | Review calibration numerical behavior | Reviewed and manually accepted | Current IW products and calibration-chain outputs are good; parser changes remain in `a98cb7af` and no formula changes are required |
 | 7 | ETAD-assisted IW processing | Next | Immediate implementation/review topic and standalone IW workstream |
 | 8 | Burst-based IW product processing | Second | Begin after ETAD; review burst timing, valid pixels, subset metadata, split/deburst/merge behavior, and related consumers |
@@ -215,7 +218,7 @@ The queue now records explicit priority. ETAD-assisted IW processing is next, bu
 | 2 | Burst-based IW product processing | Partial | Second | TNR subset coordinates and burst alignment are fixed; continue with valid pixels, timing, subset metadata, split/deburst/merge behavior, and related burst consumers after ETAD |
 | 3 | Foundational SAFE/product support | Partial | Lower | Selected metadata/geocoding utilities are fixed; revisit broader `snap-engine` parity only for concrete IW evidence |
 | 4 | Sentinel-1 SAFE reader and product directory | Partial | Lower | Manifest and selected IW reader behavior are hardened; limit follow-up to concrete IW `sar-io`, SAFE folder/zip, cache, RFI, or range-window needs |
-| 5 | Thermal noise removal | Core IW sync implemented locally | Complete for current scope | S1D is manually accepted; later SNAP-4160 policy parity is optional and lower priority |
+| 5 | Thermal noise removal | Core IW sync merged into `development` | Complete for current scope | S1D is manually accepted; later SNAP-4160 policy parity is optional and lower priority |
 | 6 | Calibration | Parser implemented; numerical behavior reviewed | Complete for current scope | Current IW products and manual calibration verification require no additional formula changes |
 | 7 | Orbit and orbit-state-vector support | Pending | Lower; no current regression | Retain Apply-Orbit-File, POD parsing/interpolation, timing, metadata, and race-condition parity for evidence-driven follow-up |
 | 8 | Range-Doppler terrain correction | Partial | Lower; no current regression | Fine-grid support fixes are implemented; current products are good, so broader parity is deferred |
