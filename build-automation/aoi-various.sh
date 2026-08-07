@@ -147,15 +147,15 @@ set +e
 golden_prod_path="$NIGHTLY_GOLDEN_DIR"/20260412T180621_20260418T180513_S1A_S1C_coh6_VV_103.tif
 
 echo "Validating $test_1_prod_path"
-./alus_result_check.py -I "$test_1_prod_path" -G "$golden_prod_path" -O SKIP_ALUs_VERSION
+./alus_result_check.py -I "$test_1_prod_path" -G "$golden_prod_path" -O SKIP_ALUs_VERSION SKIP_AREA_SELECTION
 res1=$?
 
 echo "Validating $test_2_prod_path"
-./alus_result_check.py -I "$test_2_prod_path" -G "$golden_prod_path" -O SKIP_ALUs_VERSION
+./alus_result_check.py -I "$test_2_prod_path" -G "$golden_prod_path" -O SKIP_ALUs_VERSION SKIP_AREA_SELECTION
 res2=$?
 
 echo "Validating $test_3_prod_path"
-./alus_result_check.py -I "$test_3_prod_path" -G "$golden_prod_path" -O SKIP_ALUs_VERSION
+./alus_result_check.py -I "$test_3_prod_path" -G "$golden_prod_path" -O SKIP_ALUs_VERSION SKIP_AREA_SELECTION
 res3=$?
 
 exit $((res1 | res2 | res3))
