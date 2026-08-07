@@ -85,8 +85,9 @@ ImageIOFile::ImageIOFile(std::string_view name,
 //    throw std::runtime_error("not yet ported from snap java version");
 //}
 void ImageIOFile::Close() {
-    //    todo: close streams/readers etc..
-    throw std::runtime_error("not yet implemented");
+    if (reader_) {
+        reader_->Close();
+    }
 }
 
 std::shared_ptr<snapengine::custom::IImageReader> ImageIOFile::GetReader() {

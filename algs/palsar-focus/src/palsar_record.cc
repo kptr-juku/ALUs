@@ -14,6 +14,7 @@
 
 #include "palsar_record.h"
 
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <stdexcept>

@@ -64,7 +64,9 @@ std::shared_ptr<Product> ProductIO::ReadProduct(const boost::filesystem::path& f
 
 std::shared_ptr<Product> ProductIO::ReadProductImpl(const boost::filesystem::path& file,
                                                     const std::shared_ptr<ProductSubsetDef>& subset_def) {
-    Guardian::AssertNotNull("file", file);
+    if (file.empty()) {
+        throw std::invalid_argument("file argument is empty");
+    }
     if (!boost::filesystem::exists(file)) {
         throw std::runtime_error("File not found: " + file.filename().string());
     }

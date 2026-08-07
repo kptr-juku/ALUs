@@ -63,8 +63,8 @@ public:
                              const std::vector<float>& lon_corners);
 
     static void CreateFineTiePointGrid(int coarse_grid_width, int coarse_grid_height, int fine_grid_width,
-                                       int fine_grid_height, std::vector<float> coarse_tie_points,
-                                       std::vector<float> fine_tie_points);
+                                       int fine_grid_height, const std::vector<float>& coarse_tie_points,
+                                       std::vector<float>& fine_tie_points);
 
     static std::shared_ptr<Utc> GetTime(const std::shared_ptr<snapengine::MetadataElement>& elem, std::string_view tag,
                                         std::string_view time_format);

@@ -13,7 +13,7 @@ repo=$1
 package_filename=$2
 build_dir="$repo/build"
 rm -rf $build_dir
-CUDAARCHS="50;60;70;75;80" cmake $repo -B$build_dir -DENABLE_TESTS=false
+CUDAARCHS="60;70;75;80;86;89;90;100;120-real;120-virtual" cmake $repo -B$build_dir -DENABLE_TESTS=false
 cmake --build $build_dir --target all -- -j 8
 cd $build_dir/alus_package
 cp ../../VERSION ../../README.md .

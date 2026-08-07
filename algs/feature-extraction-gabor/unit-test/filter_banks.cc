@@ -9,6 +9,7 @@
 
 #include "gmock/gmock.h"
 
+#include "../include/constants.h"
 #include "../include/filter_bank.h"
 
 // Symbols from linked "filter_banks_gabor_6or_4f.o"
@@ -107,7 +108,7 @@ TEST(FilterBank, GeneratesOrientationsCountAndRangeCorrectly) {
                     std::adjacent_find(list.cbegin(), list.cend()) == list.cend());
         ASSERT_THAT(list.front(), FloatEq(0));
         if (oc > 1) {
-            ASSERT_THAT(list.back(), Lt(M_PIf32));
+            ASSERT_THAT(list.back(), Lt(alus::featurextractiongabor::PI_FLOAT));
         }
     }
 }

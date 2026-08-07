@@ -1,5 +1,6 @@
 cmake-build*
 build
+build-alus-devel
 .idea
 venv
 __pycache__

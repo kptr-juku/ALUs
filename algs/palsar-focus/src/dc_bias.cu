@@ -14,6 +14,8 @@
 
 #include "dc_bias.h"
 
+#include <cstdint>
+
 #include "cuda_cleanup.h"
 
 namespace {

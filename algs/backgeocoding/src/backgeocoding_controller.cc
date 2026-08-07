@@ -14,6 +14,7 @@
 #include "backgeocoding_controller.h"
 
 #include <chrono>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string_view>

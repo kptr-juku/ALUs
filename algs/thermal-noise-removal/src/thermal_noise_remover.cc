@@ -14,6 +14,7 @@
 #include "thermal_noise_remover.h"
 
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <vector>
@@ -89,7 +90,9 @@ void ThermalNoiseRemover::ComputeTileImage(ThreadData* context, SharedData* tnr_
     }
 }
 void ThermalNoiseRemover::ComputeComplexTile(alus::Rectangle target_tile, ThreadData* context, SharedData* tnr_data) {
-    const auto d_noise_block = BuildNoiseLutForTOPSSLC(target_tile, thermal_noise_info_, context);
+    const Rectangle metadata_tile{target_tile.x + subset_offset_x_, target_tile.y + subset_offset_y_,
+                                  target_tile.width, target_tile.height};
+    const auto d_noise_block = BuildNoiseLutForTOPSSLC(metadata_tile, thermal_noise_info_, context);
     static_assert(sizeof(alus::Iq16) == sizeof(*context->h_tile_buffer.Get()));
     auto* buffer_ptr = reinterpret_cast<alus::Iq16*>(context->h_tile_buffer.Get());
 
@@ -129,7 +132,9 @@ void ThermalNoiseRemover::ComputeComplexTile(alus::Rectangle target_tile, Thread
 }
 
 void ThermalNoiseRemover::ComputeAmplitudeTile(alus::Rectangle target_tile, ThreadData* context, SharedData* tnr_data) {
-    const auto d_noise_block = BuildNoiseLutForTOPSGRD(target_tile, thermal_noise_info_, context);
+    const Rectangle metadata_tile{target_tile.x + subset_offset_x_, target_tile.y + subset_offset_y_,
+                                  target_tile.width, target_tile.height};
+    const auto d_noise_block = BuildNoiseLutForTOPSGRD(metadata_tile, thermal_noise_info_, context);
     static_assert(sizeof(IntensityData::input_amplitude) == sizeof(*context->h_tile_buffer.Get()));
     auto* buffer_ptr = reinterpret_cast<uint32_t*>(context->h_tile_buffer.Get());
     {

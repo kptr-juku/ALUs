@@ -13,6 +13,7 @@
  */
 #include "coregistration_controller.h"
 
+#include <cstdint>
 #include <memory>
 
 #include "apply_orbit_file_op.h"

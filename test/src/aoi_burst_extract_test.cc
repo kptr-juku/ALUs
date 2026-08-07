@@ -16,6 +16,7 @@
 #include <vector>
 
 #include <boost/geometry.hpp>
+#include <boost/geometry/io/wkt/read.hpp>
 
 #include "aoi_burst_extract.h"
 #include "raster_properties.h"
@@ -42,13 +43,12 @@ namespace {
 class AoiBurstExtract : public ::testing::Test {
 public:
     AoiBurstExtract() {
-        boost::geometry::read<boost::geometry::format_wkt>(burst1_expected_box_, BURST1_EXPECTED_BOX_WKT.data());
-        boost::geometry::read<boost::geometry::format_wkt>(burst2_expected_box_, BURST2_EXPECTED_BOX_WKT.data());
-        boost::geometry::read<boost::geometry::format_wkt>(burst1_inner_aoi_, BURST1_INNER_AOI.data());
-        boost::geometry::read<boost::geometry::format_wkt>(burst1_outer_aoi_, BURST1_OUTER_AOI.data());
-        boost::geometry::read<boost::geometry::format_wkt>(burst1_intersecting_aoi_, BURST1_INTERSECTING_AOI.data());
-        boost::geometry::read<boost::geometry::format_wkt>(burst1_not_containing_aoi_,
-                                                           BURST1_NOT_CONTAINING_AOI.data());
+        boost::geometry::read_wkt(BURST1_EXPECTED_BOX_WKT.data(), burst1_expected_box_);
+        boost::geometry::read_wkt(BURST2_EXPECTED_BOX_WKT.data(), burst2_expected_box_);
+        boost::geometry::read_wkt(BURST1_INNER_AOI.data(), burst1_inner_aoi_);
+        boost::geometry::read_wkt(BURST1_OUTER_AOI.data(), burst1_outer_aoi_);
+        boost::geometry::read_wkt(BURST1_INTERSECTING_AOI.data(), burst1_intersecting_aoi_);
+        boost::geometry::read_wkt(BURST1_NOT_CONTAINING_AOI.data(), burst1_not_containing_aoi_);
     }
 
     const std::vector<alus::Coordinates> beirut_burst_line_1_{

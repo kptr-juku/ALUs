@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <any>
 #include <cmath>
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 

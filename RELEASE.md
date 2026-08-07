@@ -1,3 +1,44 @@
+# Release 1.7.0
+
+## Breaking changes
+* Automated release packages are now built for Ubuntu 24.04 and depend on libraries from that platform. Users of older
+  distributions should build ALUs from source - [PR item](https://github.com/kptr-juku/ALUs/pull/7)
+* The default CUDA target for source builds changed from compute capability 6.0 to 8.6. Set
+  `CMAKE_CUDA_ARCHITECTURES` or `CUDAARCHS` when targeting another GPU architecture. The release package includes code
+  for compute capabilities 6.0, 7.0, 7.5, 8.0, 8.6, 8.9, 9.0, 10.0 and 12.0, with both real and virtual code for the
+  newest target - [PR item](https://github.com/kptr-juku/ALUs/pull/6)
+
+## Known Caveats
+* Version 1.6.0 Caveats were not compared for this release
+
+## Major Features and Improvements
+* Optional conversion of the final `alus-cal` terrain-corrected output to decibels with the new `--db` argument -
+  [PR item](https://github.com/cgi-estonia-space/ALUs/pull/34)
+* Targeted synchronization of Sentinel-1 IW processing with SNAP Microwave Toolbox. SAFE Level-1 metadata and geocoding
+  handling were hardened, legacy `noiseLut` and IPF 2.9+ `noiseRangeLut` metadata are supported, and core GRD and TOPS
+  SLC thermal-noise handling was aligned. This is a partial synchronization, not full Microwave Toolbox parity -
+  [PR item](https://github.com/kptr-juku/ALUs/pull/7)
+* Ubuntu 24.04 and CUDA 12.9 build support with an automated workflow for producing release package artifacts -
+  [PR1 item](https://github.com/kptr-juku/ALUs/pull/5) [PR2 item](https://github.com/kptr-juku/ALUs/pull/7)
+
+## Bug Fixes and Other Changes
+* Corrected Sentinel-1 geocoding and tie-point-grid handling for antimeridian-crossing products, TOPSAR-prefix
+  geocoding reuse, small or invalid grids, and floating-point subsampling - [PR item](https://github.com/kptr-juku/ALUs/pull/7)
+* Fixed CUDA error 701 (`too many resources requested for launch`) in terrain correction on affected GPU and toolchain
+  combinations - [PR item](https://github.com/kptr-juku/ALUs/pull/6)
+* Updated `dem_supply.sh` for current `eio` output and SAFE footprints whose corners are not stored in a fixed order -
+  [PR item](https://github.com/kptr-juku/ALUs/pull/5)
+* Restored dataset-independent unit tests under CTest and added repeatable Sentinel-1A/1C/1D coherence, Sentinel-1D
+  calibration, and post-IPF-2.9 GRD calibration workflows - [PR item](https://github.com/kptr-juku/ALUs/pull/7)
+* Updated source compatibility, build instructions, container usage and CUDA troubleshooting for current toolchains -
+  [PR1 item](https://github.com/kptr-juku/ALUs/pull/4) [PR2 item](https://github.com/kptr-juku/ALUs/pull/5)
+  [PR3 item](https://github.com/kptr-juku/ALUs/pull/6)
+* Replaced documentation links and resources that were no longer available from S3 -
+  [PR item](https://github.com/cgi-estonia-space/ALUs/pull/41)
+
+## Thanks to our Contributors
+Guido Lemoine Guido.LEMOINE@ec.europa.eu
+
 # Release 1.6.0
 
 ## Breaking changes
@@ -318,4 +359,3 @@ This will be the last release with the current architecture (algorithms as share
 
 
 ## Thanks to our Contributors
-

@@ -13,6 +13,7 @@
  */
 #include "pugixml_meta_data_reader.h"
 
+#include <cstdint>
 #include <ios>
 #include <optional>
 #include <sstream>

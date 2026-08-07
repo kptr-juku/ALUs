@@ -13,6 +13,8 @@
  */
 #include "deramp_demod_computation.h"
 
+#include <cstdint>
+
 #include "cuda_util.h"
 #include "snap-engine-utilities/engine-utilities/eo/constants.h"
 

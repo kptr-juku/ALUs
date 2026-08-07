@@ -15,6 +15,7 @@
 #include "alus_log.h"
 
 #include <chrono>
+#include <cstdint>
 #include <iostream>
 #include <memory>
 

@@ -530,6 +530,8 @@ TEST_F(Sentinel1CalibrateTest, GetExceptions) {
     EXPECT_THROW(GetCalibrationInfoList(metadata, selected_polarisations, calibration_bands), std::invalid_argument);
     sigma_element->SetAttributeString(AbstractMetadata::SIGMA_NOUGHT,
                                       alus::goods::calibrationdata::FIRST_CALIBRATION_FIRST_VECTOR_SIGMA_STRING);
+    sigma_element->SetAttributeInt(AbstractMetadata::COUNT,
+                                   alus::goods::calibrationdata::FIRST_CALIBRATION_FIRST_VECTOR_SIGMA_COUNT);
 
     EXPECT_THROW(GetCalibrationInfoList(metadata, selected_polarisations, calibration_bands), std::runtime_error);
     const auto second_vector = original_product_metadata_->GetElement(AbstractMetadata::CALIBRATION_ROOT)

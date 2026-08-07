@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <climits>
+#include <cstdint>
 
 #include "abstract_product_reader.h"
 #include "alus_log.h"

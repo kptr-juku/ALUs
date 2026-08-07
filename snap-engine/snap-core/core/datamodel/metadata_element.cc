@@ -18,6 +18,7 @@
  */
 #include "snap-core/core/datamodel/metadata_element.h"
 
+#include <cstdint>
 #include <stdexcept>
 
 #include <boost/algorithm/string.hpp>

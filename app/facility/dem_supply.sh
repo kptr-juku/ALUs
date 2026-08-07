@@ -37,29 +37,23 @@ top=""
 function parse_safe_coordinates {
     coordinates=$1
     echo "parsing $coordinates"
-    coordinates_split=($coordinates)
-    
-    # Coordinates in <gml::coordinates> are layed out so that first coordinate is bottom right when looking at a regular rectangle, they follow in clockwise direction
-    # a 3rd coordinate is left top, last top right
-    point00_lat=$(echo ${coordinates_split[0]} | awk -F',' '{print $1}')
-    point01_lat=$(echo ${coordinates_split[1]} | awk -F',' '{print $1}')
-    
-    left_up=1
-    if (( $(echo "$point00_lat > $point01_lat" |bc -l) )); then
-        left_up=0
-    fi
-    
-    if [[ $left_up == 1 ]]; then
-        left=$(echo ${coordinates_split[1]} | awk -F',' '{print $2}')
-        bottom=$(echo ${coordinates_split[0]} | awk -F',' '{print $1}')
-        right=$(echo ${coordinates_split[3]} | awk -F',' '{print $2}')
-        top=$(echo ${coordinates_split[2]} | awk -F',' '{print $1}')
-    else
-        left=$(echo ${coordinates_split[2]} | awk -F',' '{print $2}')
-        bottom=$(echo ${coordinates_split[1]} | awk -F',' '{print $1}')
-        right=$(echo ${coordinates_split[0]} | awk -F',' '{print $2}')
-        top=$(echo ${coordinates_split[3]} | awk -F',' '{print $1}')
-    fi
+
+    # SAFE coordinates are lat,lon pairs. Use min/max values instead of relying
+    # on a specific corner order in the manifest footprint.
+    read left bottom right top < <(
+        for coordinate in $coordinates; do
+            lat=${coordinate%,*}
+            lon=${coordinate#*,}
+            printf "%s %s\n" "$lat" "$lon"
+        done | awk '
+            NR == 1 { bottom = top = $1; left = right = $2 }
+            $1 < bottom { bottom = $1 }
+            $1 > top { top = $1 }
+            $2 < left { left = $2 }
+            $2 > right { right = $2 }
+            END { print left, bottom, right, top }
+        '
+    )
 }
 
 if [[ "$type_string" == "SAFE" || "$type_string" == "AFE/" ]]; then
@@ -110,9 +104,33 @@ touch $log_file
 echo "eio --product SRTM3 seed --bounds $left_with_margin $bottom_with_margin $right_with_margin $top_with_margin"
 eio --product SRTM3 --cache_dir $dem_dir seed --bounds $left_with_margin $bottom_with_margin $right_with_margin $top_with_margin | tee $log_file
 
-# Parse DEM files for this scene
-dem_files_raw=$(grep "DEM files covered" $log_file | head -1 | cut -c18-)
-dem_files_associated=${dem_files_raw//DEM files covered/}
+# Parse DEM files for this scene. Newer elevation/eio versions no longer print
+# the old "DEM files covered" line, so derive the SRTM3 tile names from bounds.
+dem_files_associated=$(awk \
+    -v left="$left_with_margin" \
+    -v bottom="$bottom_with_margin" \
+    -v right="$right_with_margin" \
+    -v top="$top_with_margin" \
+    -v dem_dir="$dem_dir" '
+    function floor_value(value) { return value == int(value) || value >= 0 ? int(value) : int(value) - 1 }
+    function tile_lon(lon) { return int((floor_value(lon) + 180) / 5) + 1 }
+    function tile_lat(lat) { return int((64 - floor_value(lat)) / 5) }
+    BEGIN {
+        left_tile = tile_lon(left)
+        right_tile = tile_lon(right)
+        top_tile = tile_lat(top)
+        bottom_tile = tile_lat(bottom)
+
+        separator = ""
+        for (ilon = left_tile; ilon <= right_tile; ilon++) {
+            for (ilat = top_tile; ilat <= bottom_tile; ilat++) {
+                if (ilon > 0 && ilat > 0) {
+                    printf "%s%s/SRTM3/cache/srtm_%02d_%02d.tif", separator, dem_dir, ilon, ilat
+                    separator = " "
+                }
+            }
+        }
+    }')
 
 echo "Log saved to $log_file" 
 echo "DEM files for scene:"

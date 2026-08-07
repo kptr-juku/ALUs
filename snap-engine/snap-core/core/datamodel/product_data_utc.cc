@@ -19,6 +19,7 @@
 #include "product_data_utc.h"
 
 #include <cmath>
+#include <cstdint>
 #include <locale>
 #include <sstream>
 #include <stdexcept>

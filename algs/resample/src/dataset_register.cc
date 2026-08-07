@@ -15,6 +15,7 @@
 #include "dataset_register.h"
 
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <string_view>
 

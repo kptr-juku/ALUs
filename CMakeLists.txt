@@ -1,8 +1,13 @@
 cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
+
+if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES AND NOT DEFINED ENV{CUDAARCHS})
+    set(CMAKE_CUDA_ARCHITECTURES "86-real;86-virtual" CACHE STRING "CUDA architectures")
+endif()
+
 project(ALUs
         LANGUAGES CXX CUDA
         DESCRIPTION "Parallel ALUs for geospatial data processing"
-        VERSION 1.6.0
+        VERSION 1.7.0
         )
 
 set(CMAKE_CUDA_STANDARD 17)
@@ -31,10 +36,6 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --extended-lambda")
 
 INCLUDE_DIRECTORIES(${CUDAToolkit_INCLUDE_DIRS})
 
-if (NOT DEFINED ENV{CUDAARCHS})
-    message(STATUS "CUDAARCHS not set, defaulting")
-    set(CMAKE_CUDA_ARCHITECTURES 60 CACHE STRING "CUDA architectures" FORCE)
-endif()
 message(STATUS "CUDA binary code will be generated for the following architecture(s) - ${CMAKE_CUDA_ARCHITECTURES}")
 
 find_package(Boost 1.71.0 REQUIRED COMPONENTS program_options date_time filesystem iostreams log log_setup)
@@ -122,7 +123,7 @@ include(FetchContent)
 FetchContent_Declare(
         googletest
         GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG release-1.10.0
+        GIT_TAG release-1.11.0
 )
 
 FetchContent_GetProperties(googletest)
@@ -157,6 +158,32 @@ if (ENABLE_TESTS)
             endforeach ()
         endif ()
     endif ()
+
+    enable_testing()
     add_subdirectory(test)
-    add_subdirectory(test-integration)
+
+    set(ALUS_UNIT_TEST_TARGETS
+            unit-test
+            app-unit-test
+            dem-util-test
+            feature-extraction-gabor-unit-test
+            math-util-test
+            remove-thermal-noise-unit-test
+            resample-unit-test
+            )
+
+    foreach (UNIT_TEST_TARGET IN LISTS ALUS_UNIT_TEST_TARGETS)
+        add_test(
+                NAME ${UNIT_TEST_TARGET}
+                COMMAND $<TARGET_FILE:${UNIT_TEST_TARGET}>
+                )
+        set_tests_properties(${UNIT_TEST_TARGET}
+                PROPERTIES
+                LABELS unit
+                WORKING_DIRECTORY ${ALUS_UNIT_TEST_BINARY_OUTPUT_DIR}
+                )
+    endforeach ()
+
+    # Integration tests fetch datasets listed in .alusresources, which are no longer available.
+    # add_subdirectory(test-integration)
 endif ()
