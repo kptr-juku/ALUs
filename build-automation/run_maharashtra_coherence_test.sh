@@ -4,7 +4,7 @@ set -e
 
 function print_help {
     echo "Usage:"
-    echo "$0 <test data folder> <COPDEM 30m COG location> <orbit files dir> [optional - output folder]"
+    echo "$0 <eo data dir> <COPDEM 30m COG location> <orbit files dir> [optional - output folder]"
 }
 
 if [ $# -lt 3 ]; then

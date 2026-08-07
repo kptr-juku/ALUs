@@ -106,6 +106,7 @@ SwathPolygon ExtractSwathPolygon(std::shared_ptr<snapengine::Product> product) {
         polygon.outer().push_back(point);
     }
 
+    boost::geometry::correct(polygon);
     LOGD << "Swath = " << subswath->subswath_name_ << " boundary = " << boost::geometry::wkt(polygon);
     return polygon;
 }

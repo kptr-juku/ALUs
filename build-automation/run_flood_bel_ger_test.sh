@@ -4,7 +4,7 @@ set -e
 
 function print_help {
     echo "Usage:"
-    echo "$0 <test data folder> <srtm3 dem files location> <COPDEM 30m files location> <orbit files location> [optional - output folder]"
+    echo "$0 <eo data dir> <srtm3 dem files location> <COPDEM 30m files location> <orbit files location> [optional - output folder]"
 }
 
 if [ $# -lt 4 ]; then

@@ -88,7 +88,8 @@ If no orbit arguments are supplied, the orbital information is simply not update
 When specifying an area to be processed traditional subswath and burst index parameters can be used. However, it might be simpler
 to use ``-a``/``--aoi`` parameter to specify exact region. This must be a WKT polygon and does not have to follow burst boundaries exactly.
 For example a stripe like polygon can be supplied where it will consider all the bursts to be processed which are overlapping with the given coordinates.
-Currently a subswath parameter must be supplied (this requirement will be removed in upcoming versions) along with area of interest.
+If a subswath is supplied, processing is limited to that subswath. If it is omitted, intersecting subswaths are selected automatically
+and merged when the AOI spans more than one subswath.
 For analyzing scenes' layout and position on map a [S-1 TOPS SPLIT Analyzer](https://github.com/pbrotoisworo/s1-tops-split-analyzer) could be used.
 
 Coherence computation parameters are pure computation specific and further knowledge of these could be found in SNAP Help/Documentation or via some other resources in web.
@@ -149,7 +150,8 @@ alus-coh -r S1B_IW_SLC__1SDV_20210615T054959_20210615T055026_027363_0344A0_83FE.
 Input of the processing is provided by ``-i``/``--input`` argument. The area on which to perform processing can be traditional subswath and burst index parameters.
 However, it might be simpler to use ``-a``/``--aoi`` parameter to specify exact region. This must be a WKT polygon and does not have to follow burst boundaries exactly.
 For example a stripe like polygon can be supplied where it will consider all the bursts to be processed which are overlapping with the given coordinates.
-Currently a subswath parameter must be supplied (this requirement will be removed in upcoming versions) along with area of interest.
+If a subswath is supplied, processing is limited to that subswath. If it is omitted, intersecting subswaths are selected automatically
+and merged when the AOI spans more than one subswath.
 
 ``-t``/``--type`` option specify which kind of calibration is performed - which look-up table is used and normalization formula - to radiometrically calibrate the data.
 
