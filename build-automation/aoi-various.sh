@@ -44,21 +44,11 @@ for slc_product in "$s1a_20260412" "$s1c_20260418"; do
     fi
 done
 
+# The AOI selects full IW3 bursts 3 and 6, whose range footprints span these three tiles.
 dem_files=(
-    "$dem_files_dir/Copernicus_DSM_COG_10_N51_00_W006_00_DEM.tif"
-    "$dem_files_dir/Copernicus_DSM_COG_10_N51_00_W005_00_DEM.tif"
-    "$dem_files_dir/Copernicus_DSM_COG_10_N51_00_W004_00_DEM.tif"
-    "$dem_files_dir/Copernicus_DSM_COG_10_N51_00_W003_00_DEM.tif"
-    "$dem_files_dir/Copernicus_DSM_COG_10_N52_00_W007_00_DEM.tif"
-    "$dem_files_dir/Copernicus_DSM_COG_10_N52_00_W006_00_DEM.tif"
     "$dem_files_dir/Copernicus_DSM_COG_10_N52_00_W005_00_DEM.tif"
     "$dem_files_dir/Copernicus_DSM_COG_10_N52_00_W004_00_DEM.tif"
     "$dem_files_dir/Copernicus_DSM_COG_10_N52_00_W003_00_DEM.tif"
-    "$dem_files_dir/Copernicus_DSM_COG_10_N53_00_W007_00_DEM.tif"
-    "$dem_files_dir/Copernicus_DSM_COG_10_N53_00_W006_00_DEM.tif"
-    "$dem_files_dir/Copernicus_DSM_COG_10_N53_00_W005_00_DEM.tif"
-    "$dem_files_dir/Copernicus_DSM_COG_10_N53_00_W004_00_DEM.tif"
-    "$dem_files_dir/Copernicus_DSM_COG_10_N53_00_W003_00_DEM.tif"
 )
 
 dem_args=()
