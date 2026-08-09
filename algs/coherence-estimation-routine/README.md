@@ -48,10 +48,12 @@ Arguments:
   -p [ --polarisation ] arg             Polarisation for which coherence 
                                         estimation will be performed - VV;VH
   --sw arg                              Reference scene's subswath
-  -a [ --aoi ] arg                      Area Of Interest WKT polygon. Or 
-                                        shapefile (.shp) consisting similar 
-                                        geometry.Overrules first and last burst
-                                        indexes and subswath selections.
+  -a [ --aoi ] arg                      Area Of Interest WKT polygon or
+                                        shapefile/GeoJSON file consisting
+                                        similar geometry. Overrules first and
+                                        last burst indexes. If --sw is omitted,
+                                        intersecting subswaths are selected
+                                        automatically.
   --dem arg                             DEM file(s). SRTM3 and Copernicus DEM 
                                         30m COG are currently supported.
   --no_mask_cor                         Do not mask out areas without elevation
@@ -100,8 +102,12 @@ https://github.com/cgi-estonia-space/ALUs
   -p [ --polarisation ] arg             Polarisation for which coherence 
                                         estimation will be performed - VV;VH
   --sw arg                              Reference scene's subswath
-  -a [ --aoi ] arg                      Area Of Interest WKT polygon, overrules
-                                        first and last burst indexes
+  -a [ --aoi ] arg                      Area Of Interest WKT polygon or
+                                        shapefile/GeoJSON file consisting
+                                        similar geometry. Overrules first and
+                                        last burst indexes. If --sw is omitted,
+                                        intersecting subswaths are selected
+                                        automatically.
   --dem arg                             DEM file(s). Only SRTM3 is currently 
                                         supported.
   --no_mask_cor                         Do not mask out areas without elevation

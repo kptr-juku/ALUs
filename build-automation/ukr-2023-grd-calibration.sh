@@ -4,7 +4,7 @@ set -euo pipefail
 
 function print_help {
     echo "Usage:"
-    echo "$0 <test data folder> <COPDEM 30m COG location> [optional - output folder]"
+    echo "$0 <eo data dir> <COPDEM 30m COG location> [optional - output folder]"
 }
 
 if [[ $# -lt 2 || $# -gt 3 ]]; then

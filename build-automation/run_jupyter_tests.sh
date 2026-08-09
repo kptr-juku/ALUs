@@ -25,7 +25,7 @@ if [ "$jupyter_folder" == "" ]; then
 fi
 
 if [ "$test_dataset_dir" == "" ]; then
-  echo "Test dataset directory not provided. Please enter a directory as the script's second argument."
+  echo "EO data directory not provided. Please enter a directory as the script's second argument."
   exit 1
 fi
 

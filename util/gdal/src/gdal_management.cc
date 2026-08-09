@@ -77,6 +77,7 @@ void Initialize() {
     GDALRegister_netCDF();
     RegisterOGRSQLite();
     RegisterOGRShape();
+    RegisterOGRGeoJSON();
     GetGDALDriverManager()->AutoSkipDrivers();
 }
 

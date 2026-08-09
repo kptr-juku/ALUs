@@ -319,6 +319,11 @@ void Execute::Split(std::shared_ptr<snapengine::Product> product, size_t burst_i
         LOGI << product->GetName() << " swaths to be processed = " << boost::algorithm::join(swath_selection, " ");
     }
 
+    if (swath_selection.empty()) {
+        THROW_ALGORITHM_EXCEPTION(ALG_NAME,
+                                  "Specified AOI and/or swath arguments result in no subswaths to be processed.");
+    }
+
     for (const auto& split : splits) {
         auto product_path = std::filesystem::path(product->GetFileLocation().string());
         // Remove manifest.safe

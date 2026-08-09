@@ -599,6 +599,11 @@ void Execute::SplitApplyOrbit(const std::string& path, size_t burst_index_start,
         LOGI << product->GetName() << " swath selection = " << boost::algorithm::join(swath_selection, " ");
     }
 
+    if (swath_selection.empty()) {
+        THROW_ALGORITHM_EXCEPTION(ALG_NAME,
+                                  "Specified AOI and/or swath arguments result in no subswaths to be processed.");
+    }
+
     bool orbit_file_used_recorded{false};
     for (const auto& split : splits) {
         split->OpenPixelReader(path);
