@@ -43,14 +43,22 @@ boost::filesystem::path Dir::GetFile(std::string_view path) {
 }
 
 bool Dir::Exists(std::string_view path) {
-    //    todo: this must be checked over later
-    boost::filesystem::path child{std::string(path)};
-    try {
-        auto check_path = boost::filesystem::canonical(child, dir_);
-        return true;
-    } catch (const boost::filesystem::filesystem_error& ex) {
+    const boost::filesystem::path child{std::string(path)};
+    if (child.empty()) {
         return false;
     }
+
+    const boost::filesystem::path parent = child.has_parent_path() ? child.parent_path() : ".";
+    try {
+        // Object-store FUSE mounts may synthesize successful stat results for names absent from directory listings.
+        for (const auto& entry : List(parent.generic_string())) {
+            if (entry == child.filename().string()) {
+                return true;
+            }
+        }
+    } catch (const boost::filesystem::filesystem_error&) {
+    }
+    return false;
 }
 
 void Dir::GetInputStream([[maybe_unused]] std::string_view path, [[maybe_unused]] std::fstream& stream) {
