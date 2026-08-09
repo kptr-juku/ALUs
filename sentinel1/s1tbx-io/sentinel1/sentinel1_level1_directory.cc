@@ -23,9 +23,6 @@
 #include <vector>
 
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/xml_parser.hpp>
 #include <boost/tokenizer.hpp>
 
 #include "alus_log.h"
@@ -691,7 +688,10 @@ void Sentinel1Level1Directory::AddAbstractedMetadataHeader(const std::shared_ptr
     acq_mode_ = abs_root->GetAttributeString(snapengine::AbstractMetadata::ACQUISITION_MODE);
     SetSLC(abs_root->GetAttributeString(snapengine::AbstractMetadata::SAMPLE_TYPE) == "COMPLEX");
 
-    AddProductInfoJSON(orig_prod_root);
+    if (product_dir_->Exists("productInfo.json")) {
+        LOGI << "productInfo.json exists for '" << GetProductName()
+             << "' but is not used; ALUs utilizes metadata from manifest.safe and the accompanying XML files only";
+    }
 
     // get metadata for each band
     AddBandAbstractedMetadata(abs_root, orig_prod_root);
@@ -901,40 +901,6 @@ std::shared_ptr<snapengine::MetadataElement> Sentinel1Level1Directory::FindEleme
         }
     }
     return nullptr;
-}
-void Sentinel1Level1Directory::AddProductInfoJSON(const std::shared_ptr<snapengine::MetadataElement>& orig_prod_root) {
-    if (product_dir_->Exists("productInfo.json")) {
-        try {
-            // THIS MAKES A SMALL ROUNDTRIP BETWEEN DIFFERENT MODELS AND FORMATS, BUT STARTING OUT LIKE ESA SNAP... CAN
-            // ALWAYS IMPROVE IF IT WORKS
-            boost::filesystem::path product_info_file = product_dir_->GetFile("productInfo.json");
-            boost::property_tree::ptree tree;
-            boost::property_tree::read_json(product_info_file.filename().string(), tree);
-            std::stringstream ss;
-            boost::property_tree::write_xml(ss, tree);
-            pugi::xml_document doc;
-            pugi::xml_parse_result result = doc.load(ss);
-            if (result) {
-                pugi::xml_node root = doc.document_element();
-                pugi::xml_document doc2;
-                doc2.append_child("ProductInfo");
-                doc2.document_element().append_move(root);
-                snapengine::AbstractMetadataIO::AddXMLMetadata(doc2.document_element(), orig_prod_root);
-            }
-            //            todo: delete comments after this has been tested
-            //            if (product_info_file.length() > 0) {
-            //                final BufferedReader streamReader = new BufferedReader(new
-            //                FileReader(productInfoFile.getPath())); final JSONParser parser = new JSONParser(); final
-            //                JSONObject json = (JSONObject)parser.parse(streamReader); json.remove("filenameMap");
-            //                snapengine::AbstractMetadataIO::AddXMLMetadata(JSONProductDirectory.jsonToXML("ProductInfo",
-            //                json),
-            //                                                               orig_prod_root);
-            //            }
-        } catch (const std::exception& e) {
-            //            todo: not sure why snap had throw commented out, I will just log atm
-            LOGE << "Unable to read productInfo " << e.what();
-        }
-    }
 }
 void Sentinel1Level1Directory::AddBandAbstractedMetadata(
     const std::shared_ptr<snapengine::MetadataElement>& abs_root,
