@@ -45,11 +45,11 @@ Arguments:
                              unspecified for whole subswath and GRD
   --bi2 arg                  Last burst index - starting at '1', leave 
                              unspecified for whole subswath and GRD
-  -a [ --aoi ] arg           Area Of Interest WKT polygon. Or shapefile (.shp)
-                             consisting similar geometry. Overrules first and
-                             last burst indexes. If --sw is omitted, intersecting
-                             subswaths are selected automatically. Not effective
-                             for GRD.
+  -a [ --aoi ] arg           Area Of Interest WKT polygon or shapefile/GeoJSON
+                             file consisting similar geometry. Overrules first
+                             and last burst indexes. If --sw is omitted,
+                             intersecting subswaths are selected automatically.
+                             Not effective for GRD.
   -t [ --type ] arg          Type of calibration to be performed, one of the 
                              following - sigma;beta;gamma;dn
   --dem arg                  DEM file(s). SRTM3 and Copernicus DEM 30m COG are 

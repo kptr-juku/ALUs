@@ -43,8 +43,12 @@ Arguments:
   -p [ --polarisation ] arg             Polarisation for which coherence 
                                         estimation will be performed - VV;VH
   --sw arg                              Reference scene's subswath
-  -a [ --aoi ] arg                      Area Of Interest WKT polygon, overrules
-                                        first and last burst indexes
+  -a [ --aoi ] arg                      Area Of Interest WKT polygon or
+                                        shapefile/GeoJSON file consisting
+                                        similar geometry. Overrules first and
+                                        last burst indexes. If --sw is omitted,
+                                        intersecting subswaths are selected
+                                        automatically.
   --dem arg                             DEM file(s). Only SRTM3 is currently 
                                         supported.
   --no_mask_cor                         Do not mask out areas without elevation
@@ -86,7 +90,8 @@ the tool can search for correct one. Supports restituted(RESORB) and precise(POE
 If no orbit arguments are supplied, the orbital information is simply not updated during the calculations.
 
 When specifying an area to be processed traditional subswath and burst index parameters can be used. However, it might be simpler
-to use ``-a``/``--aoi`` parameter to specify exact region. This must be a WKT polygon and does not have to follow burst boundaries exactly.
+to use ``-a``/``--aoi`` parameter to specify exact region. The AOI may be a WKT polygon or a shapefile/GeoJSON file and does not have
+to follow burst boundaries exactly.
 For example a stripe like polygon can be supplied where it will consider all the bursts to be processed which are overlapping with the given coordinates.
 If a subswath is supplied, processing is limited to that subswath. If it is omitted, intersecting subswaths are selected automatically
 and merged when the AOI spans more than one subswath.
@@ -135,8 +140,11 @@ alus-coh -r S1B_IW_SLC__1SDV_20210615T054959_20210615T055026_027363_0344A0_83FE.
                              unspecified for whole subswath
   --bi2 arg                  Last burst index - starting at '1', leave 
                              unspecified for whole subswath
-  -a [ --aoi ] arg           Area Of Interest WKT polygon, overrules first and 
-                             last burst indexes
+  -a [ --aoi ] arg           Area Of Interest WKT polygon or shapefile/GeoJSON
+                             file consisting similar geometry. Overrules first
+                             and last burst indexes. If --sw is omitted,
+                             intersecting subswaths are selected automatically.
+                             Not effective for GRD.
   -t [ --type ] arg          Type of calibration to be performed, one of the 
                              following - sigma;beta;gamma;dn
   --dem arg                  DEM file(s). Only SRTM3 is currently supported.
@@ -148,7 +156,8 @@ alus-coh -r S1B_IW_SLC__1SDV_20210615T054959_20210615T055026_027363_0344A0_83FE.
 ```
 
 Input of the processing is provided by ``-i``/``--input`` argument. The area on which to perform processing can be traditional subswath and burst index parameters.
-However, it might be simpler to use ``-a``/``--aoi`` parameter to specify exact region. This must be a WKT polygon and does not have to follow burst boundaries exactly.
+However, it might be simpler to use ``-a``/``--aoi`` parameter to specify exact region. The AOI may be a WKT polygon or a shapefile/GeoJSON file and does not have
+to follow burst boundaries exactly.
 For example a stripe like polygon can be supplied where it will consider all the bursts to be processed which are overlapping with the given coordinates.
 If a subswath is supplied, processing is limited to that subswath. If it is omitted, intersecting subswaths are selected automatically
 and merged when the AOI spans more than one subswath.

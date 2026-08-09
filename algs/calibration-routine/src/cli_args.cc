@@ -106,7 +106,7 @@ void Arguments::Construct() {
         ("bi2", po::value<size_t>(&burst_last_index_),
             "Last burst index - starting at '1', leave unspecified for whole subswath and GRD")
         ("aoi,a", po::value<std::string>(&aoi_),
-         "Area Of Interest WKT polygon. Or shapefile (.shp) consisting similar geometry. "
+         "Area Of Interest WKT polygon or shapefile/GeoJSON file consisting similar geometry. "
          "Overrules first and last burst indexes. If --sw is omitted, intersecting subswaths are selected "
          "automatically. Not effective for GRD.")
         ("type,t", po::value<std::string>(&calibration_type_)->required(), calibration_type_help.c_str())
