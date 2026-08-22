@@ -69,6 +69,12 @@ Arguments:
   --rg_win arg (=15)                    range window size in pixels.
   --az_win arg (=0)                     azimuth window size in pixels, if zero 
                                         derived from range window.
+  --pixel-dim-m arg                     Terrain correction output pixel
+                                        dimension in meters. Mutually exclusive
+                                        with --pixel-dim-deg.
+  --pixel-dim-deg arg                   Terrain correction output pixel
+                                        dimension in degrees. Mutually
+                                        exclusive with --pixel-dim-m.
   --orbit_degree arg (=3)
   -w [ --wif ]                          Write intermediate results (will be 
                                         saved in the same folder as final 
@@ -88,6 +94,10 @@ If such option does not exist or there are no specific orbit files present, one 
 and then supply downloaded files via ``--orbit_ref`` and ``--orbit_sec``. Also orbit files could be collected into directory,
 the tool can search for correct one. Supports restituted(RESORB) and precise(POEORB) orbits.
 If no orbit arguments are supplied, the orbital information is simply not updated during the calculations.
+
+Terrain correction resolution can be specified with either ``--pixel-dim-m`` or ``--pixel-dim-deg``. The options are
+mutually exclusive and must be positive. If neither is supplied, the output resolution is determined by the azimuth resolution of the input product.
+These options are also available for ``alus-coht``.
 
 When specifying an area to be processed traditional subswath and burst index parameters can be used. However, it might be simpler
 to use ``-a``/``--aoi`` parameter to specify exact region. The AOI may be a WKT polygon or a shapefile/GeoJSON file and does not have
@@ -148,6 +158,14 @@ alus-coh -r S1B_IW_SLC__1SDV_20210615T054959_20210615T055026_027363_0344A0_83FE.
   -t [ --type ] arg          Type of calibration to be performed, one of the 
                              following - sigma;beta;gamma;dn
   --dem arg                  DEM file(s). Only SRTM3 is currently supported.
+  --orbit arg                POEORB/RESORB file or directory used to find a
+                             matching orbit file. If unspecified, orbital
+                             information is not updated.
+  --pixel-dim-m arg          Terrain correction output pixel dimension in
+                             meters. Mutually exclusive with --pixel-dim-deg.
+  --pixel-dim-deg arg        Terrain correction output pixel dimension in
+                             degrees. Mutually exclusive with --pixel-dim-m.
+  --db                       Output values in dB scale.
 
   --ll arg (=verbose)        Log level, one of the following - 
                              verbose|debug|info|warning|error
@@ -163,6 +181,12 @@ If a subswath is supplied, processing is limited to that subswath. If it is omit
 and merged when the AOI spans more than one subswath.
 
 ``-t``/``--type`` option specify which kind of calibration is performed - which look-up table is used and normalization formula - to radiometrically calibrate the data.
+
+``--orbit`` accepts either a specific POEORB/RESORB file or a directory from which the matching orbit is dynamically
+selected before calibration. If it is omitted, the input product's orbit state vectors are used unchanged. Terrain
+correction resolution can be specified with either ``--pixel-dim-m`` or ``--pixel-dim-deg``; the options are mutually
+exclusive and must be positive. If neither is supplied, the output resolution is determined by the azimuth resolution
+of the input product.
 
 ### Examples
 

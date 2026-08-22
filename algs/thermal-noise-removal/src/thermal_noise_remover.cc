@@ -183,7 +183,7 @@ void ThermalNoiseRemover::Initialise() {
     abstract_metadata_root_ = snapengine::AbstractMetadata::GetAbstractedMetadata(source_product_);
 
     GetSubsetOffset();
-    // There is no need for these as only IW SLC product is currently supported
+    // There is no need for these atm
     // GetProductType();
     // GetAcquisitionMode();
     GetThermalNoiseCorrectionFlag();
@@ -395,6 +395,10 @@ void ThermalNoiseRemover::CreateTargetDatasetFromProduct() {
     }
     // End of placeholder
 
+    if (target_product_ == nullptr) {
+        throw std::runtime_error("Implementation bug discovered - 'target_product_' is nullptr for " +
+            std::string(__PRETTY_FUNCTION__));
+    }
     const auto target_bands = target_product_->GetBands();
     for (int i = 1; i <= static_cast<int>(target_bands.size()); i++) {
         const auto& band = target_bands.at(i - 1);

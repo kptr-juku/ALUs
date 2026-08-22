@@ -14,6 +14,7 @@
 
 #include "cli_args.h"
 
+#include <cmath>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -41,6 +42,15 @@ void Arguments::Parse(const std::vector<char*>& args) {
 
 void Arguments::Check() {
     boost::program_options::notify(vm_);
+    if (vm_.count("pixel-dim-m") != 0U && vm_.count("pixel-dim-deg") != 0U) {
+        throw std::invalid_argument("--pixel-dim-m and --pixel-dim-deg cannot be used together.");
+    }
+    if (vm_.count("pixel-dim-m") != 0U && (!std::isfinite(pixel_dimension_m_) || pixel_dimension_m_ <= 0.0)) {
+        throw std::invalid_argument("--pixel-dim-m must be a finite value greater than zero.");
+    }
+    if (vm_.count("pixel-dim-deg") != 0U && (!std::isfinite(pixel_dimension_deg_) || pixel_dimension_deg_ <= 0.0)) {
+        throw std::invalid_argument("--pixel-dim-deg must be a finite value greater than zero.");
+    }
     if (vm_.count("bi1") != vm_.count("bi2")) {
         throw std::invalid_argument("Burst indexes both must be either supplied or left undefined.");
     }
@@ -70,6 +80,14 @@ std::optional<std::tuple<size_t, size_t>> Arguments::GetBurstIndexes() const {
     }
 
     return std::make_tuple(burst_start_index_, burst_last_index_);
+}
+
+std::optional<double> Arguments::GetPixelDimensionMeters() const {
+    return vm_.count("pixel-dim-m") == 0U ? std::nullopt : std::make_optional(pixel_dimension_m_);
+}
+
+std::optional<double> Arguments::GetPixelDimensionDegrees() const {
+    return vm_.count("pixel-dim-deg") == 0U ? std::nullopt : std::make_optional(pixel_dimension_deg_);
 }
 
 void Arguments::Construct() {
@@ -112,6 +130,13 @@ void Arguments::Construct() {
         ("type,t", po::value<std::string>(&calibration_type_)->required(), calibration_type_help.c_str())
         ("dem", po::value<std::vector<std::string>>(&dem_files_)->required(),
             "DEM file(s). SRTM3 and Copernicus DEM 30m COG are currently supported.")
+        ("orbit", po::value<std::string>(&orbit_path_),
+            "POEORB/RESORB file or directory used to find a matching orbit file. "
+            "If unspecified, orbital information is not updated.")
+        ("pixel-dim-m", po::value<double>(&pixel_dimension_m_),
+            "Terrain correction output pixel dimension in meters. Mutually exclusive with --pixel-dim-deg.")
+        ("pixel-dim-deg", po::value<double>(&pixel_dimension_deg_),
+            "Terrain correction output pixel dimension in degrees. Mutually exclusive with --pixel-dim-m.")
         ("db", po::bool_switch(&db_values_), "Output values in dB scale.");
     // clang-format on
 

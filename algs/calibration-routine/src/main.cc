@@ -40,6 +40,9 @@ alus::calibrationroutine::Execute::Parameters AssembleParameters(const alus::cal
     params.burst_first_index = alus::calibrationroutine::INVALID_BURST_INDEX;
     params.burst_last_index = alus::calibrationroutine::INVALID_BURST_INDEX;
     params.output_db_values = args.OutputValuesInDb();
+    params.orbit_path = args.GetOrbitPath();
+    params.pixel_dimension_m = args.GetPixelDimensionMeters();
+    params.pixel_dimension_deg = args.GetPixelDimensionDegrees();
     if (const auto bursts = args.GetBurstIndexes(); bursts.has_value()) {
         params.burst_first_index = std::get<0>(bursts.value());
         params.burst_last_index = std::get<1>(bursts.value());

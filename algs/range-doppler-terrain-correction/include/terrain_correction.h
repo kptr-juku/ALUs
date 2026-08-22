@@ -15,6 +15,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -45,7 +46,9 @@ public:
                                const PointerHolder* dem_tiles, size_t dem_tiles_length,
                                const dem::Property* dem_property, const dem::Type dem_type,
                                const std::vector<dem::Property>& dem_property_value, int selected_band_id = 1,
-                               bool use_average_scene_height = false);
+                               bool use_average_scene_height = false,
+                               std::optional<double> pixel_dimension_m = std::nullopt,
+                               std::optional<double> pixel_dimension_deg = std::nullopt);
 
     snapengine::old::Product CreateTargetProduct(const snapengine::geocoding::Geocoding* geocoding,
                                                  std::string_view output_filename);
@@ -77,6 +80,8 @@ private:
     std::shared_ptr<snapengine::TiePointGrid> lat_tie_point_grid_;
     std::shared_ptr<snapengine::TiePointGrid> lon_tie_point_grid_;
     const bool use_average_scene_height_{false};
+    const std::optional<double> pixel_dimension_m_;
+    const std::optional<double> pixel_dimension_deg_;
     GetPositionMetadata d_get_position_metadata_;
     std::vector<snapengine::OrbitStateVectorComputation> h_orbit_state_vectors_;
     std::pair<std::string, std::shared_ptr<GDALDataset>> output_;

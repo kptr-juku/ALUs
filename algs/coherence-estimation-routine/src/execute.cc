@@ -374,7 +374,8 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
     terraincorrection::TerrainCorrection tc(tc_in_dataset, metadata.GetMetadata(), metadata.GetLatTiePointGrid(),
                                             metadata.GetLonTiePointGrid(), d_elevation_tiles, elevation_tiles_length,
                                             d_elevation_tiles_prop, elevation_tile_type, elevation_tiles_host_prop,
-                                            selected_band);
+                                            selected_band, false, params_.pixel_dimension_m,
+                                            params_.pixel_dimension_deg);
     std::string tc_output_file = predefined_end_result_name.empty()
                                      ? boost::filesystem::path(output_file).replace_extension("").string() + "_tc.tif"
                                      : predefined_end_result_name;
@@ -464,8 +465,8 @@ void Execute::RunTimeline(alus::cuda::CudaInit& cuda_init, size_t) {
         const auto& type = split_filename.at(2);
         const auto& start_time_str = split_filename.at(4);
 
-        if ((mission != "S1A" && mission != "S1B") || type != "SLC") {
-            LOGD << filename << " filtered out - not SLC and/or S1A/S1B";
+        if ((mission != "S1A" && mission != "S1B" && mission != "S1C" && mission != "S1D") || type != "SLC") {
+            LOGD << filename << " filtered out - not SLC and/or S1A/S1B/S1C/S1D";
             continue;
         }
 

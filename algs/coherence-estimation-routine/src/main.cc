@@ -67,6 +67,8 @@ alus::coherenceestimationroutine::Execute::Parameters AssembleParameters(
     params.orbit_degree = args.GetOrbitDegree();
     params.rg_window = args.GetRangeWindow();
     params.az_window = args.GetAzimuthWindow();
+    params.pixel_dimension_m = args.GetPixelDimensionMeters();
+    params.pixel_dimension_deg = args.GetPixelDimensionDegrees();
     params.wif = args.DoSaveIntermediateResults();
 
     params.timeline_start = args.GetTimelineStart();

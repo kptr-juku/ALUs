@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <string_view>
 
@@ -26,6 +27,7 @@
 
 #include "abstract_metadata.h"
 #include "algorithm_exception.h"
+#include "apply_orbit_file_op.h"
 #include "alus_log.h"
 #include "aoi_burst_extract.h"
 #include "constants.h"
@@ -38,6 +40,8 @@
 #include "metadata_record.h"
 #include "sentinel1_calibrate.h"
 #include "sentinel1_product_reader_plug_in.h"
+#include "snap-core/core/util/alus_utils.h"
+#include "snap-core/core/util/system_utils.h"
 #include "terrain_correction.h"
 #include "terrain_correction_metadata.h"
 #include "thermal_noise_remover.h"
@@ -94,6 +98,16 @@ void Execute::Run(alus::cuda::CudaInit& cuda_init, size_t) {
     auto product = reader->ReadProductNodes(boost::filesystem::canonical(params_.input), nullptr);
     const auto pt = product->GetProductType();
 
+    if (!params_.orbit_path.empty()) {
+        if (std::filesystem::is_directory(params_.orbit_path)) {
+            LOGI << "Searching for a matching orbit file in '" << params_.orbit_path << "'";
+            snapengine::SystemUtils::SetAuxDataPath(params_.orbit_path + "/");
+        } else {
+            LOGI << "Using specified orbit file '" << params_.orbit_path << "'";
+            snapengine::AlusUtils::SetOrbitFilePath(params_.orbit_path);
+        }
+    }
+
     // split
     std::vector<std::shared_ptr<snapengine::Product>> tnr_in_products;
     std::vector<GDALDataset*> tnr_in_ds;
@@ -106,6 +120,12 @@ void Execute::Run(alus::cuda::CudaInit& cuda_init, size_t) {
         const auto split_start = std::chrono::steady_clock::now();
         Split(product, params_.burst_first_index, params_.burst_last_index, splits, swath_selection);
 
+        if (!params_.orbit_path.empty()) {
+            for (const auto& split : splits) {
+                ApplyOrbitFile(split->GetTargetProduct());
+            }
+        }
+
         LOGI << "Sentinel 1 split done - "
              << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - split_start)
                     .count()
@@ -116,6 +136,9 @@ void Execute::Run(alus::cuda::CudaInit& cuda_init, size_t) {
             tnr_in_ds_areas.push_back(s->GetPixelReader()->GetDataset()->GetReadingArea());
         }
     } else if (pt == "GRD") {
+        if (!params_.orbit_path.empty()) {
+            ApplyOrbitFile(product);
+        }
         tnr_in_products.push_back(product);
         // For GRD the current product implementation uses polarization for the subswath.
         swath_selection.emplace_back(params_.polarisation);
@@ -219,16 +242,32 @@ void Execute::Run(alus::cuda::CudaInit& cuda_init, size_t) {
 }
 
 void Execute::PrintProcessingParameters() const {
-    LOGI << "Processing parameters:" << std::endl
-         << "Input product - " << params_.input << std::endl
-         << "Subswath - " << params_.subswath << std::endl
-         << "Polarisation - " << params_.polarisation << std::endl
-         << "Calibration type - " << params_.calibration_type << std::endl
-         << "First burst index - " << params_.burst_first_index << std::endl
-         << "Last burst index - " << params_.burst_last_index << std::endl
-         << "AOI - " << params_.aoi << std::endl
-         << "Write intermediate files - " << (params_.wif ? "YES" : "NO") << std::endl
-         << "convert to dB - " << (params_.output_db_values ? "YES" : "NO") << std::endl;
+    std::ostringstream parameters;
+    parameters << "Processing parameters:" << std::endl
+               << "Input product - " << params_.input << std::endl
+               << "Subswath - " << params_.subswath << std::endl
+               << "Polarisation - " << params_.polarisation << std::endl
+               << "Calibration type - " << params_.calibration_type << std::endl
+               << "First burst index - " << params_.burst_first_index << std::endl
+               << "Last burst index - " << params_.burst_last_index << std::endl
+               << "AOI - " << params_.aoi << std::endl
+               << "Orbit path - " << (params_.orbit_path.empty() ? "NOT SPECIFIED" : params_.orbit_path) << std::endl
+               << "Pixel dimension in meters - ";
+    if (params_.pixel_dimension_m.has_value()) {
+        parameters << params_.pixel_dimension_m.value();
+    } else {
+        parameters << "NOT SPECIFIED";
+    }
+    parameters << std::endl << "Pixel dimension in degrees - ";
+    if (params_.pixel_dimension_deg.has_value()) {
+        parameters << params_.pixel_dimension_deg.value();
+    } else {
+        parameters << "NOT SPECIFIED";
+    }
+    parameters << std::endl
+               << "Write intermediate files - " << (params_.wif ? "YES" : "NO") << std::endl
+               << "convert to dB - " << (params_.output_db_values ? "YES" : "NO") << std::endl;
+    LOGI << parameters.str();
 }
 
 void Execute::ParseCalibrationType(std::string_view type) {
@@ -245,7 +284,10 @@ void Execute::ParseCalibrationType(std::string_view type) {
     }
 }
 
-void Execute::ValidateParameters() const { ValidatePolarisation(); }
+void Execute::ValidateParameters() const {
+    ValidateSubSwath();
+    ValidatePolarisation();
+}
 
 void Execute::ValidateSubSwath() const {
     if (!EqualsAnyOf(params_.subswath, SUBSWATHS.cbegin(), SUBSWATHS.cend())) {
@@ -260,6 +302,14 @@ void Execute::ValidatePolarisation() const {
 }
 
 Execute::~Execute() { alus::gdalmanagement::Deinitialize(); }
+
+void Execute::ApplyOrbitFile(const std::shared_ptr<snapengine::Product>& product) {
+    auto orbit_op = std::make_unique<s1tbx::ApplyOrbitFileOp>(product, true);
+    orbit_op->Initialize();
+    const auto orbit_filename = orbit_op->GetFilename();
+    LOGI << "Orbit correction applied to '" << product->GetName() << "' using '" << orbit_filename << "'";
+    metadata_.AddWhenMissing(common::metadata::sentinel1::ORBIT_SOURCE, orbit_filename);
+}
 
 void Execute::Split(std::shared_ptr<snapengine::Product> product, size_t burst_index_start, size_t burst_index_end,
                     std::vector<std::shared_ptr<topsarsplit::TopsarSplit>>& splits,
@@ -518,7 +568,8 @@ std::string Execute::TerrainCorrection(const std::shared_ptr<snapengine::Product
     terraincorrection::TerrainCorrection tc(
         in_ds, metadata.GetMetadata(), metadata.GetLatTiePointGrid(), metadata.GetLonTiePointGrid(), d_dem_tiles,
         dem_tiles_length, dem_assistant->GetElevationManager()->GetProperties(), dem_assistant->GetType(),
-        dem_assistant->GetElevationManager()->GetPropertiesValue(), selected_band);
+        dem_assistant->GetElevationManager()->GetPropertiesValue(), selected_band, false, params_.pixel_dimension_m,
+        params_.pixel_dimension_deg);
     std::string tc_output_file = predefined_output_name.empty()
                                      ? boost::filesystem::path(std::string(output_name)).replace_extension("").string() +
                                            "_tc.tif"

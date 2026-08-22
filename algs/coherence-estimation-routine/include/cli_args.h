@@ -57,6 +57,8 @@ public:
     [[nodiscard]] bool DoSubtractFlatEarthPhase() const { return subtract_flat_earth_phase_; };
     [[nodiscard]] size_t GetRangeWindow() const { return range_window_; }
     [[nodiscard]] size_t GetAzimuthWindow() const { return az_window_; }
+    [[nodiscard]] std::optional<double> GetPixelDimensionMeters() const;
+    [[nodiscard]] std::optional<double> GetPixelDimensionDegrees() const;
     [[nodiscard]] bool DoMaskOutAreaWithoutElevation() const { return !disable_coregistration_elevation_mask_; }
     [[nodiscard]] size_t GetGpuMemoryPercentage() const { return alus_args_.GetGpuMemoryPercentage(); }
     [[nodiscard]] common::log::Level GetLogLevel() const { return alus_args_.GetLogLevel(); }
@@ -100,6 +102,8 @@ private:
     std::string orbit_file_reference_;
     std::string orbit_file_secondary_;
     std::string orbit_file_dir_;
+    double pixel_dimension_m_{};
+    double pixel_dimension_deg_{};
 };
 
 }  // namespace alus::coherenceestimationroutine

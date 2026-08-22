@@ -15,6 +15,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -53,6 +54,8 @@ public:
         size_t rg_window;
         size_t az_window;
         size_t orbit_degree;
+        std::optional<double> pixel_dimension_m;
+        std::optional<double> pixel_dimension_deg;
         bool wif;
         std::string output;
         bool mask_out_area_without_elevation;

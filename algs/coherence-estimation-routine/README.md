@@ -74,6 +74,12 @@ Arguments:
   --rg_win arg (=15)                    range window size in pixels.
   --az_win arg (=0)                     azimuth window size in pixels, if zero 
                                         derived from range window.
+  --pixel-dim-m arg                     Terrain correction output pixel
+                                        dimension in meters. Mutually exclusive
+                                        with --pixel-dim-deg.
+  --pixel-dim-deg arg                   Terrain correction output pixel
+                                        dimension in degrees. Mutually
+                                        exclusive with --pixel-dim-m.
   --orbit_degree arg (=3)
   -w [ --wif ]                          Write intermediate results (will be 
                                         saved in the same folder as final 
@@ -128,6 +134,12 @@ https://github.com/cgi-estonia-space/ALUs
   --rg_win arg (=15)                    range window size in pixels.
   --az_win arg (=0)                     azimuth window size in pixels, if zero 
                                         derived from range window.
+  --pixel-dim-m arg                     Terrain correction output pixel
+                                        dimension in meters. Mutually exclusive
+                                        with --pixel-dim-deg.
+  --pixel-dim-deg arg                   Terrain correction output pixel
+                                        dimension in degrees. Mutually
+                                        exclusive with --pixel-dim-m.
   --orbit_degree arg (=3)
   -w [ --wif ]                          Write intermediate results (will be 
                                         saved in the same folder as final 
@@ -139,6 +151,9 @@ https://github.com/cgi-estonia-space/ALUs
   --gpu_mem arg (=100)                  Percentage of how much GPU memory can 
                                         be used for processing
 ```
+
+If neither pixel dimension option is supplied, terrain correction derives the output resolution from the source
+product as before. Pixel dimensions must be positive; specifying both forms is an error.
 
 ## Performance
 

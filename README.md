@@ -18,9 +18,8 @@ For further comprehensive evaluation see [Wiki](https://github.com/cgi-estonia-s
 
 # Out of the box usage
 
-Verified releases can be downloaded from - https://github.com/cgi-estonia-space/ALUs/releases/
-One can download docker image with all of the needed dependencies
-from [dockerhub](https://hub.docker.com/repository/docker/cgialus/alus-devel) or simply `docker pull cgialus/alus-devel`
+Verified releases can be downloaded from - https://github.com/cgi-estonia-space/ALUs/releases/ or from https://github.com/kptr-juku/ALUs/releases since version 1.7.
+One can create docker images and local installation from the scripts and Dockerfiles from https://github.com/kptr-juku/ALUs-platform
 
 ## Executing
 

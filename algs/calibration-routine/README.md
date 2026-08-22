@@ -54,6 +54,14 @@ Arguments:
                              following - sigma;beta;gamma;dn
   --dem arg                  DEM file(s). SRTM3 and Copernicus DEM 30m COG are 
                              currently supported.
+  --orbit arg                POEORB/RESORB file or directory used to find a
+                             matching orbit file. If unspecified, orbital
+                             information is not updated.
+  --pixel-dim-m arg          Terrain correction output pixel dimension in
+                             meters. Mutually exclusive with --pixel-dim-deg.
+  --pixel-dim-deg arg        Terrain correction output pixel dimension in
+                             degrees. Mutually exclusive with --pixel-dim-m.
+  --db                       Output values in dB scale.
 
   --ll arg (=verbose)        Log level, one of the following - 
                              verbose|debug|info|warning|error
@@ -64,6 +72,11 @@ Arguments:
 https://github.com/cgi-estonia-space/ALUs
 
 ```
+
+`--orbit` accepts either a specific POEORB/RESORB file or a directory from which the matching orbit is dynamically
+selected. If it is omitted, the orbit state vectors embedded in the input product are used without correction. If
+neither pixel dimension option is supplied, terrain correction derives the output resolution from the source product
+as before. Pixel dimensions must be positive; specifying both forms is an error.
 
 ## Performance
 

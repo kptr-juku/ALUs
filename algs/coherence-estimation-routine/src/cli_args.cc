@@ -14,6 +14,7 @@
 
 #include "cli_args.h"
 
+#include <cmath>
 #include <filesystem>
 #include <sstream>
 #include <string>
@@ -94,6 +95,10 @@ void Arguments::Construct() {
         "range window size in pixels.")
         ("az_win", po::value<size_t>(&az_window_)->default_value(0U),
         "azimuth window size in pixels, if zero derived from range window.")
+        ("pixel-dim-m", po::value<double>(&pixel_dimension_m_),
+        "Terrain correction output pixel dimension in meters. Mutually exclusive with --pixel-dim-deg.")
+        ("pixel-dim-deg", po::value<double>(&pixel_dimension_deg_),
+        "Terrain correction output pixel dimension in degrees. Mutually exclusive with --pixel-dim-m.")
         ("orbit_degree", po::value<size_t>(&orbit_degree_)->default_value(3U), "")
         ("wif,w", po::bool_switch(&wif_)->default_value(false),
          "Write intermediate results (will be saved in the same folder as final outcome)."
@@ -117,6 +122,15 @@ std::string Arguments::GetHelp() const {
 
 void Arguments::Check() {
     boost::program_options::notify(vm_);
+    if (vm_.count("pixel-dim-m") != 0U && vm_.count("pixel-dim-deg") != 0U) {
+        throw std::invalid_argument("--pixel-dim-m and --pixel-dim-deg cannot be used together.");
+    }
+    if (vm_.count("pixel-dim-m") != 0U && (!std::isfinite(pixel_dimension_m_) || pixel_dimension_m_ <= 0.0)) {
+        throw std::invalid_argument("--pixel-dim-m must be a finite value greater than zero.");
+    }
+    if (vm_.count("pixel-dim-deg") != 0U && (!std::isfinite(pixel_dimension_deg_) || pixel_dimension_deg_ <= 0.0)) {
+        throw std::invalid_argument("--pixel-dim-deg must be a finite value greater than zero.");
+    }
     if ((vm_.count("b_ref1") != vm_.count("b_ref2")) != (vm_.count("b_sec1") != vm_.count("b_sec2"))) {
         throw std::invalid_argument(
             "All burst indexes must be either supplied or left undefined. "
@@ -142,6 +156,14 @@ std::optional<std::string> Arguments::GetAoi() const {
     }
 
     return std::make_optional(aoi_);
+}
+
+std::optional<double> Arguments::GetPixelDimensionMeters() const {
+    return vm_.count("pixel-dim-m") == 0U ? std::nullopt : std::make_optional(pixel_dimension_m_);
+}
+
+std::optional<double> Arguments::GetPixelDimensionDegrees() const {
+    return vm_.count("pixel-dim-deg") == 0U ? std::nullopt : std::make_optional(pixel_dimension_deg_);
 }
 
 std::optional<std::tuple<size_t, size_t>> Arguments::GetBurstIndexesReference() const {
