@@ -2,6 +2,7 @@ list(APPEND COHERENCE_ESTIMATION_ROUTINE_SOURCES
         ${CMAKE_CURRENT_LIST_DIR}/src/cli_args.cc
         ${CMAKE_CURRENT_LIST_DIR}/src/execute.cc
         ${CMAKE_CURRENT_LIST_DIR}/src/main.cc
+        ${CMAKE_CURRENT_LIST_DIR}/src/timeline_dataset_metadata.cc
         )
 
 list(APPEND COHERENCE_ESTIMATION_ROUTINE_INCLUDES
@@ -35,6 +36,7 @@ target_link_libraries(alus-coh
         terrain-correction-static
         common-util-static
         dem-util-static
+        staticZipper
         )
 
 target_link_libraries(alus-coht
@@ -51,6 +53,7 @@ target_link_libraries(alus-coht
         terrain-correction-static
         common-util-static
         dem-util-static
+        staticZipper
         )
 
 target_compile_definitions(alus-coh PRIVATE COHERENCE_TIMELINE=0)

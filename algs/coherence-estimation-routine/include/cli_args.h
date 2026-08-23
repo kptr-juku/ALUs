@@ -38,6 +38,8 @@ public:
     [[nodiscard]] std::string GetTimelineEnd() const { return timeline_end_; }
     [[nodiscard]] std::string GetTimelineInput() const { return timeline_input_; }
     [[nodiscard]] std::string GetTimelineMission() const { return timeline_mission_; }
+    [[nodiscard]] std::optional<size_t> GetRelativeOrbit() const;
+    [[nodiscard]] std::optional<std::string> GetOrbitDirection() const;
     [[nodiscard]] std::string GetInputReference() const { return input_reference_; }
     [[nodiscard]] std::string GetInputSecondary() const { return input_secondary_; }
     [[nodiscard]] std::optional<std::tuple<size_t, size_t>> GetBurstIndexesReference() const;
@@ -85,6 +87,8 @@ private:
     std::string timeline_end_;
     std::string timeline_input_;
     std::string timeline_mission_;
+    size_t timeline_relative_orbit_{};
+    std::string timeline_orbit_direction_;
 
     std::string subswath_;
     std::string polarisation_;

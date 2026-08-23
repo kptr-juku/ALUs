@@ -290,6 +290,9 @@ void Execute::ValidateParameters() const {
 }
 
 void Execute::ValidateSubSwath() const {
+    if (params_.subswath.empty()) {
+        return;
+    }
     if (!EqualsAnyOf(params_.subswath, SUBSWATHS.cbegin(), SUBSWATHS.cend())) {
         THROW_ALGORITHM_EXCEPTION(ALG_NAME, "Subswath value not supported - " + params_.subswath);
     }

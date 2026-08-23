@@ -43,6 +43,7 @@
 #include "snap-core/core/util/system_utils.h"
 #include "terrain_correction.h"
 #include "terrain_correction_metadata.h"
+#include "timeline_dataset_metadata.h"
 #include "topsar_deburst_op.h"
 #include "topsar_merge.h"
 #include "topsar_split.h"
@@ -56,6 +57,7 @@ constexpr size_t FULL_SUBSWATH_BURST_INDEX_END{9999};
 struct TimelineDataset {
     std::filesystem::path path;
     boost::posix_time::ptime date_time;
+    std::string orbit_source;
     std::vector<std::string> swath_selection;
     std::vector<std::shared_ptr<alus::topsarsplit::TopsarSplit>> splits;
 };
@@ -483,9 +485,23 @@ void Execute::RunTimeline(alus::cuda::CudaInit& cuda_init, size_t) {
             continue;
         }
 
+        if (params_.timeline_relative_orbit.has_value() || params_.timeline_orbit_direction.has_value()) {
+            const auto timeline_metadata = GetTimelineDatasetMetadata(path);
+            if (params_.timeline_relative_orbit.has_value() &&
+                timeline_metadata.relative_orbit != params_.timeline_relative_orbit) {
+                LOGD << filename << " filtered out by relative orbit";
+                continue;
+            }
+            if (params_.timeline_orbit_direction.has_value() &&
+                timeline_metadata.orbit_direction != params_.timeline_orbit_direction) {
+                LOGD << filename << " filtered out by orbit direction";
+                continue;
+            }
+        }
+
         LOGI << "Dataset " << filename << " selected for timeline";
 
-        datasets.push_back({path, scene_time, {}, {}});
+        datasets.push_back({path, scene_time, {}, {}, {}});
     }
 
     if (datasets.size() < 2U) {
@@ -500,11 +516,18 @@ void Execute::RunTimeline(alus::cuda::CudaInit& cuda_init, size_t) {
     size_t load_cnt = 0;
     size_t calc_index = 0;
     while (calc_index < total_datasets - 1) {
+        metadata_ = common::metadata::Container();
+        if (load_cnt != 0U) {
+            metadata_.AddOrAppend(common::metadata::sentinel1::ORBIT_SOURCE,
+                                  datasets.at(calc_index).orbit_source);
+        }
+
         while (load_cnt < 2 && ((calc_index + load_cnt) < total_datasets)) {
             auto& load_ds = datasets.at(calc_index + load_cnt);
             LOGD << "Loading " << load_ds.path.filename();
-            SplitApplyOrbit(load_ds.path.string(), FULL_SUBSWATH_BURST_INDEX_START, FULL_SUBSWATH_BURST_INDEX_END,
-                            load_ds.splits, load_ds.swath_selection);
+            load_ds.orbit_source =
+                SplitApplyOrbit(load_ds.path.string(), FULL_SUBSWATH_BURST_INDEX_START, FULL_SUBSWATH_BURST_INDEX_END,
+                                load_ds.splits, load_ds.swath_selection);
             load_cnt++;
         }
 
@@ -532,15 +555,14 @@ void Execute::RunTimeline(alus::cuda::CudaInit& cuda_init, size_t) {
         LOGD << "Freeing " << free.path.filename();
         free.splits.clear();
         load_cnt--;
-        metadata_ = common::metadata::Container();
     }
 
     dem_assistant->GetElevationManager()->ReleaseFromDevice();
 }
 
-void Execute::SplitApplyOrbit(const std::string& path, size_t burst_index_start, size_t burst_index_end,
-                              std::vector<std::shared_ptr<alus::topsarsplit::TopsarSplit>>& splits,
-                              std::vector<std::string>& swath_selection) {
+std::string Execute::SplitApplyOrbit(const std::string& path, size_t burst_index_start, size_t burst_index_end,
+                                     std::vector<std::shared_ptr<alus::topsarsplit::TopsarSplit>>& splits,
+                                     std::vector<std::string>& swath_selection) {
     auto reader_plug_in = std::make_shared<alus::s1tbx::Sentinel1ProductReaderPlugIn>();
     auto reader = reader_plug_in->CreateReaderInstance();
     auto product = reader->ReadProductNodes(boost::filesystem::canonical(path), nullptr);
@@ -605,7 +627,7 @@ void Execute::SplitApplyOrbit(const std::string& path, size_t burst_index_start,
                                   "Specified AOI and/or swath arguments result in no subswaths to be processed.");
     }
 
-    bool orbit_file_used_recorded{false};
+    std::string orbit_source;
     for (const auto& split : splits) {
         split->OpenPixelReader(path);
         auto orbit_op = std::make_unique<s1tbx::ApplyOrbitFileOp>(split->GetTargetProduct(), true);
@@ -613,17 +635,19 @@ void Execute::SplitApplyOrbit(const std::string& path, size_t burst_index_start,
             LOGI << "No orbital information update for " << split->GetTargetProduct()->GetName() << " "
                  << split->GetSubswath();
             orbit_op->InitializeWithoutUpdate();
-            if (!orbit_file_used_recorded) {
-                metadata_.AddOrAppend(common::metadata::sentinel1::ORBIT_SOURCE, "SAFE");
+            if (orbit_source.empty()) {
+                orbit_source = "SAFE";
+                metadata_.AddOrAppend(common::metadata::sentinel1::ORBIT_SOURCE, orbit_source);
             }
         } else {
             orbit_op->Initialize();
-            if (!orbit_file_used_recorded) {
-                metadata_.AddOrAppend(common::metadata::sentinel1::ORBIT_SOURCE, orbit_op->GetFilename());
+            if (orbit_source.empty()) {
+                orbit_source = orbit_op->GetFilename();
+                metadata_.AddOrAppend(common::metadata::sentinel1::ORBIT_SOURCE, orbit_source);
             }
         }
-        orbit_file_used_recorded = true;
     }
+    return orbit_source;
 }
 
 std::string Execute::ConditionAoi(const std::string& aoi) const {

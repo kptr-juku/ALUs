@@ -75,6 +75,8 @@ alus::coherenceestimationroutine::Execute::Parameters AssembleParameters(
     params.timeline_end = args.GetTimelineEnd();
     params.timeline_input = args.GetTimelineInput();
     params.timeline_mission = args.GetTimelineMission();
+    params.timeline_relative_orbit = args.GetRelativeOrbit();
+    params.timeline_orbit_direction = args.GetOrbitDirection();
 
     return params;
 }

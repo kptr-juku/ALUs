@@ -65,7 +65,11 @@ void Arguments::Construct() {
             ( "input,i", po::value<std::string>(&timeline_input_)->required(), "Timeline search directory")
             ("timeline_start,s", po::value<std::string>(&timeline_start_)->required(), "Timeline start - format YYYYMMDD")
             ("timeline_end,e", po::value<std::string>(&timeline_end_)->required(), "Timeline end - format YYYYMMDD")
-            ( "timeline_mission,m", po::value<std::string>(&timeline_mission_), "Timeline mission filter - S1A or S1B");
+            ( "timeline_mission,m", po::value<std::string>(&timeline_mission_), "Timeline mission filter - S1A|S1B|S1C|S1D")
+            ("relative-orbit", po::value<size_t>(&timeline_relative_orbit_),
+             "Timeline relative orbit filter - range 1-175")
+            ("orbit-direction", po::value<std::string>(&timeline_orbit_direction_),
+             "Timeline orbit direction filter - ascending or descending");
         // clang-format on
     }
     // clang-format on
@@ -143,6 +147,16 @@ void Arguments::Check() {
         }
     }
 
+    if (timeline_args_ && vm_.count("relative-orbit") != 0U &&
+        (timeline_relative_orbit_ == 0U || timeline_relative_orbit_ > 175U)) {
+        throw std::invalid_argument("--relative-orbit must be in range 1-175");
+    }
+
+    if (timeline_args_ && vm_.count("orbit-direction") != 0U && timeline_orbit_direction_ != "ascending" &&
+        timeline_orbit_direction_ != "descending") {
+        throw std::invalid_argument("--orbit-direction must be ascending or descending");
+    }
+
     if (timeline_args_ && !std::filesystem::is_directory(output_)) {
         throw std::invalid_argument("Timeline output must be a directory");
     }
@@ -164,6 +178,14 @@ std::optional<double> Arguments::GetPixelDimensionMeters() const {
 
 std::optional<double> Arguments::GetPixelDimensionDegrees() const {
     return vm_.count("pixel-dim-deg") == 0U ? std::nullopt : std::make_optional(pixel_dimension_deg_);
+}
+
+std::optional<size_t> Arguments::GetRelativeOrbit() const {
+    return vm_.count("relative-orbit") == 0U ? std::nullopt : std::make_optional(timeline_relative_orbit_);
+}
+
+std::optional<std::string> Arguments::GetOrbitDirection() const {
+    return vm_.count("orbit-direction") == 0U ? std::nullopt : std::make_optional(timeline_orbit_direction_);
 }
 
 std::optional<std::tuple<size_t, size_t>> Arguments::GetBurstIndexesReference() const {
