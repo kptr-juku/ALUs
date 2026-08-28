@@ -92,7 +92,7 @@ Arguments:
                                         be used for processing
 
 
-https://github.com/cgi-estonia-space/ALUs
+https://github.com/kptr-juku/ALUs
 
 ```
 
@@ -157,7 +157,8 @@ product as before. Pixel dimensions must be positive; specifying both forms is a
 
 ## Performance
 
-Please see the latest and always updated comprehensive evaluation in the [Wiki](https://github.com/cgi-estonia-space/ALUs/wiki/Coherence-estimation-evaluation)
+Please see the latest comprehensive evaluation in the
+[Wiki](https://github.com/cgi-estonia-space/ALUs/wiki/Coherence-estimation-evaluation).
 
 **Following contents below might be deprecated**
 

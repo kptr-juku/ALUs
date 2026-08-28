@@ -14,12 +14,42 @@ Developed by [CGI Estonia](https://www.cgi.com/ee/et).
 Current fork is developed through contract CT-EX2026D1431914-101 of the European Commission
 
 ## [Quick performance overview](PERFORMANCE.md)
-For further comprehensive evaluation see [Wiki](https://github.com/cgi-estonia-space/ALUs/wiki) 
+For further comprehensive evaluation see [Wiki](https://github.com/cgi-estonia-space/ALUs/wiki).
 
-# Out of the box usage
+# Installation And Build
 
-Verified releases can be downloaded from - https://github.com/cgi-estonia-space/ALUs/releases/ or from https://github.com/kptr-juku/ALUs/releases since version 1.7.
-One can create docker images and local installation from the scripts and Dockerfiles from https://github.com/kptr-juku/ALUs-platform
+Use [ALUs-platform](https://github.com/kptr-juku/ALUs-platform) for prerequisites, dependencies, local builds, Docker
+image builds, and container usage. See [Dependencies and Prerequisites](DEPENDENCIES.md) for an overview of its setup
+layers. Verified releases are available from https://github.com/kptr-juku/ALUs/releases.
+
+The development setup from ALUs-platform is required for source builds. Initialize the submodules and configure an
+out-of-source release build:
+
+```bash
+git submodule update --init --recursive
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTS=OFF
+cmake --build build -j8
+```
+
+To build and run the repository tests, use a separate build directory:
+
+```bash
+cmake -S . -B build-tests -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTS=ON
+cmake --build build-tests -j8
+ctest --test-dir build-tests --output-on-failure
+```
+
+When compiler discovery needs to be overridden, specify the host compilers and `nvcc` path during the first configure:
+
+```bash
+CC=/usr/bin/gcc CXX=/usr/bin/g++ cmake -S . -B build-custom \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DENABLE_TESTS=OFF \
+  -DCMAKE_CUDA_COMPILER=/usr/local/cuda-12/bin/nvcc
+cmake --build build-custom -j8
+```
+
+Use a fresh build directory when changing compilers. Built executables are placed in `<build_dir>/alus_package`.
 
 ## Executing
 
@@ -32,70 +62,11 @@ Each algorithm is a separate executable. Currently available ones are (more info
 * Gabor feature extraction - ``alus-gfe`` ([README](algs/feature-extraction-gabor/README.md))
 * PALSAR level 0 focuser - ``alus-palsar-focus`` ([README](algs/palsar-focus/README.md))
 
-When building separately, these are located at ``<build_dir>/alus_package``
-
 Update **PATH** environment variable in order to execute everywhere:  
 ``export PATH=$PATH:/path/to/<alus_package>``
 
 See ``--help`` for specific arguments/parameters how to invoke processing. For more information see detailed explanation
 of Sentinel 1 processors' [processing arguments](docs/PROCESSING_ARGUMENTS.md).
-
-## Docker example
-
-NVIDIA driver and NVIDIA Container Toolkit must be installed together with docker.
-
-When Docker has not been configured with the NVIDIA runtime, use the CDI device syntax instead of `--gpus all`:
-
-```
-docker run -t -d --device nvidia.com/gpu=all --name alus_container cgialus/alus-devel
-```
-
-With NVIDIA runtime configured for Docker, the regular `--gpus all` syntax can be used:
-
-```
-docker pull cgialus/alus-devel:latest
-docker run -t -d --gpus all --name alus_container cgialus/alus-devel
-docker exec -t alus_container mkdir /root/alus
-docker cp <latest build tar archive> alus_container:/root/alus/
-docker exec -t alus_container bash -c "tar -xzf /root/alus/*.tar.gz -C /root/alus/"
-# Use docker cp to transfer all the input datasets, auxiliary data, then either
-docker exec -t alus_container bash -c "cd /root/alus; ./alus-<alg> ...."
-# Or connect to shell
-docker exec -it alus_container /bin/bash
-# Running coherence estimation routine example
-./alus-coh -r S1A_IW_SLC__1SDV_20200724T034334_20200724T034401_033591_03E49D_96AA.SAFE \
--s S1A_IW_SLC__1SDV_20200805T034334_20200805T034401_033766_03E9F9_52F6.SAFE \
--o /tmp/ -p VV --orbit_dir <orbit files location> --sw IW1 --dem srtm_43_06.tif --dem srtm_44_06.tif
-# Running calibration routine example
-./alus-cal -i S1A_IW_SLC__1SDV_20180815T154813_20180815T154840_023259_028747_4563.SAFE \
--o /tmp/alus_S1A_IW_SLC__1SDV_20180815T154813_20180815T154840_023259_028747_4563_Calib_tc.tif \
---sw IW1 -p VV --type beta --dem srtm_42_01.tif
-```
-
-# Dependencies
-
-[Setup of dependencies](DEPENDENCIES.md)
-
-# Building
-
-```
-git submodule update --init --recursive
-cmake . -Bbuild
-cd build
-make -j8
-```
-
-When building inside `cgialus/alus-devel` for newer NVIDIA GPUs than the image's CUDA SDK knows natively, explicitly include PTX for the newest architecture supported by that SDK. For example, with the CUDA 11.4 based `alus-devel` image:
-
-```
-cmake -S . -Bbuild-alus-devel -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES="86-real;86-virtual"
-cmake --build build-alus-devel --target alus-cal alus-coh -j8
-```
-
-# Jupyter Notebook
-
-There is a Jupyter Notebook located at `jupyter-notebook` folder with a user-friendly interface and automated auxiliary file downloads.
-It can be used in conjunction with binaries to easily execute code. Read the [instructions](jupyter-notebook/README.md).
 
 # Minimum/Recommended requirements
 
@@ -117,9 +88,8 @@ Below are rough figures:
 
 # [Release notes](RELEASE.md)
 
-[Binary downloads](https://github.com/cgi-estonia-space/ALUs/releases/) 
+[Binary downloads](https://github.com/kptr-juku/ALUs/releases/)
 
 # Troubleshooting
 
 For CUDA related errors - [CUDA troubleshooting](CUDA_TROUBLESHOOT.md).
-

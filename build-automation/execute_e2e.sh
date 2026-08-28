@@ -69,13 +69,6 @@ echo "
 echo "
 *****UKR GRD calibration with COPDEM 30m COG******"
 ./run_ukr_grd_test.sh $test_datasets_dir $copdem30_files_dir $products_output
-echo "
-*****Jupyter notebook tests*****"
-python3 -m venv .env
-source .env/bin/activate
-./run_jupyter_tests.sh "$(pwd)/jupyter-notebook" "$test_datasets_dir" "$(pwd)" "$orbit_files_dir" $products_output
-jupyter_test_exit=$?
-deactivate
 
 exit $((disaster_test_exit | virumaa_calibration_test_exit | flood_test_exit | maharashtra_calibration_test_exit | \
-        resample_test_exit | gabor_feature_extraction_exit | jupyter_test_exit | perito_moreno_test_exit))
+        resample_test_exit | gabor_feature_extraction_exit | perito_moreno_test_exit))

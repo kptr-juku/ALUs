@@ -98,8 +98,6 @@ Band 1 Block=272x512 Type=Float32, ColorInterp=Gray
     STATISTICS_VALID_PERCENT=16.29
 ```
 
-NB! Exactly same raster results were processed by Tesla V100 EC2 AWS instance
-
 **gdalcompare**
 ```
 Files differ at the binary level.
@@ -122,11 +120,6 @@ Metadata value difference for key "STATISTICS_STDDEV"
   New:    "0.20130284526615"
 Differences Found: 6
 ```
-
-Produced files:  
-[SNAP [link not present]](https://alus-goods.s3.eu-central-1.amazonaws.com/snap_comparison/version0_6/S1A_IW_SLC__1SDV_20200724T034334_20200724T034401_033591_03E49D_96AA_Orb_Stack_coh_deb_TC.tif)  
-[SNAP nodata corrected [link not present]](https://alus-goods.s3.eu-central-1.amazonaws.com/snap_comparison/version0_6/S1A_IW_SLC__1SDV_20200724T034334_20200724T034401_033591_03E49D_96AA_Orb_Stack_coh_deb_TC_no_data0_calc.tif)  
-[ALUS [link not present]](https://alus-goods.s3.eu-central-1.amazonaws.com/snap_comparison/version0_6/S1A_IW_SLC__1SDV_20200724T034334_20200724T034401_033591_03E49D_96AA_Orb_Stack_IW1_coh_deb_tc_940mx.tif)  
 
 ## Single burst from IW1 (explosion area)
 
@@ -205,8 +198,6 @@ Band 1 Block=400x448 Type=Float32, ColorInterp=Gray
     STATISTICS_VALID_PERCENT=16.01
 ```
 
-NB! Exactly same raster results were processed by Tesla V100 EC2 AWS instance
-
 **gdalcompare**
 ```
 Files differ at the binary level.
@@ -229,11 +220,6 @@ Metadata value difference for key "STATISTICS_STDDEV"
   New:    "0.20270094973491"
 Differences Found: 6
 ```
-
-Produced files:  
-[SNAP [link not present]](https://alus-goods.s3.eu-central-1.amazonaws.com/snap_comparison/version0_6/S1A_IW_SLC__1SDV_20200724T034334_20200724T034401_033591_03E49D_96AA_Orb_Stack_b6_coh_deb_TC.tif)  
-[SNAP nodata corrected [link not present]](https://alus-goods.s3.eu-central-1.amazonaws.com/snap_comparison/version0_6/S1A_IW_SLC__1SDV_20200724T034334_20200724T034401_033591_03E49D_96AA_Orb_Stack_b6_coh_deb_TC_no_data0_calc.tif)  
-[ALUS [link not present]](https://alus-goods.s3.eu-central-1.amazonaws.com/snap_comparison/version0_6/S1A_IW_SLC__1SDV_20200724T034334_20200724T034401_033591_03E49D_96AA_Orb_Stack_IW1_b6_coh_deb_tc_940mx.tif)  
 
 ALUS discrepancies on the coastal line of Beirut displayed in QGIS:
 
@@ -314,12 +300,6 @@ Band 1 Block=256x432 Type=Float32, ColorInterp=Gray
     STATISTICS_VALID_PERCENT=69.35
 ```
 
-NB! Exactly same raster results were processed by Tesla V100 EC2 AWS instance
-
-Produced files:  
-[SNAP [link not present]](https://alus-goods.s3.eu-central-1.amazonaws.com/snap_comparison/version0_6/S1A_IW_SLC__1SDV_20210703T055050_20210703T055117_038609_048E45_35F7_Orb_Stack_coh_deb_TC.tif)  
-[ALUS [link not present]](https://alus-goods.s3.eu-central-1.amazonaws.com/snap_comparison/version0_6/S1A_IW_SLC__1SDV_20210703T055050_20210703T055117_038609_048E45_35F7_Orb_Stack_coh_deb_tc.tif)
-
 Histogram comparisons in QGIS
 
 SNAP
@@ -399,11 +379,5 @@ Band 1 Block=448x448 Type=Float32, ColorInterp=Gray
     STATISTICS_STDDEV=1.8649079802383
     STATISTICS_VALID_PERCENT=71.22
 ```
-
-NB! Exactly same raster results were processed by Tesla V100 EC2 AWS instance
-
-Produced files:  
-[SNAP [link not present]](https://alus-goods.s3.eu-central-1.amazonaws.com/snap_comparison/version0_6/S1A_IW_SLC__1SDV_20210722T005537_20210722T005604_038883_049695_2E58_split_Cal_deb_TC.tif)  
-[ALUS [link not present]](https://alus-goods.s3.eu-central-1.amazonaws.com/snap_comparison/version0_6/S1A_IW_SLC__1SDV_20210722T005537_20210722T005604_038883_049695_2E58_Calib_b26_tc_mx940.tif)
 
 ![gamm0](gamma0_calibrate.png)

@@ -1,12 +1,12 @@
 # Release 1.7.0
 
 ## Breaking changes
-* Automated release packages are now built for Ubuntu 24.04 and depend on libraries from that platform. Users of older
-  distributions should build ALUs from source - [PR item](https://github.com/kptr-juku/ALUs/pull/7)
-* The default CUDA target for source builds changed from compute capability 6.0 to 8.6. Set
-  `CMAKE_CUDA_ARCHITECTURES` or `CUDAARCHS` when targeting another GPU architecture. The release package includes code
-  for compute capabilities 6.0, 7.0, 7.5, 8.0, 8.6, 8.9, 9.0, 10.0 and 12.0, with both real and virtual code for the
-  newest target - [PR item](https://github.com/kptr-juku/ALUs/pull/6)
+* Automated release packages are now built for Ubuntu 24.04 and depend on libraries from that platform. Use
+  [ALUs-platform](https://github.com/kptr-juku/ALUs-platform) for other supported environments -
+  [PR item](https://github.com/kptr-juku/ALUs/pull/7)
+* The default CUDA target for source builds changed from compute capability 6.0 to 8.6. Use
+  [ALUs-platform](https://github.com/kptr-juku/ALUs-platform) to build for a different GPU architecture -
+  [PR item](https://github.com/kptr-juku/ALUs/pull/6)
 
 ## Known Caveats
 * Version 1.6.0 Caveats were not compared for this release
@@ -45,16 +45,15 @@ Guido Lemoine Guido.LEMOINE@ec.europa.eu
 
 ## Known Caveats
 * Coherence estimation results can have missing pixels(or coherence 0 values) on north and east direction on coastlines when compared to SNAP.
-  Currently it is unresolved what is the correct way. See examples [A](https://private-user-images.githubusercontent.com/98521380/390646246-24022a16-e1e2-44ad-9001-f0295f9dff94.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNDYtMjQwMjJhMTYtZTFlMi00NGFkLTkwMDEtZjAyOTVmOWRmZjk0LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTBlN2FkZDZmMzBlNmZkY2Q5NzBiMTVkNzE3ODRjODQ3NzU3OGZmMmRlZmViNWIwNTM5NmMwYjkzY2I1ZWYyOTQmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.7vlkaxv2Dxt_aOCIFLkfCOhPwjnSsTUy9eevyG7fEkI)
-  and [B](https://private-user-images.githubusercontent.com/98521380/390646259-dcb73140-0653-469a-b6d3-0f53e8d4f287.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNTktZGNiNzMxNDAtMDY1My00NjlhLWI2ZDMtMGY1M2U4ZDRmMjg3LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTg4YzZiNDUxMDg4NjAyMDFkYTA0NmIwYjc3ZWM4MDllMTkxZDljMjZkNGZjNWIxNGI5Mzg3ZGQxZjE1ODZiYmMmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.Ho2RcvdT2gTteIb8-F5JkgskjssLXwZDATE4wLRMaDo). 
+  Currently it is unresolved what is the correct way. See examples [A](https://github.com/user-attachments/assets/24022a16-e1e2-44ad-9001-f0295f9dff94)
+  and [B](https://github.com/user-attachments/assets/dcb73140-0653-469a-b6d3-0f53e8d4f287).
   See posts about the issues/bugs - [tile size affecting results](https://forum.step.esa.int/t/tile-size-is-affecting-coregistration-results/32193/4)
   and [no-data value interpretation](https://forum.step.esa.int/t/coregistration-no-data-value/35304/2).
 * Due to the nature of floating point arithmetic there are some discrepancies when compared to SNAP, see [slideshow](https://github.com/user-attachments/files/17943084/GPU-GSTP-MPR-0008.pdf)
 
 ## Major Features and Improvements
 * Basic S1 metadata in the produced results for `alus-coh`, `alus-cal` and `alus-coht` - [PR item](https://github.com/cgi-estonia-space/ALUs/pull/29)
-* Polynomial estimation for subtract flat earth phase for each burst in coherence opeation - [PR item](https://github.com/cgi-estonia-space/ALUs/pull/26)
-* Jupyter notebook and related dependencies updates - [PR item](https://github.com/cgi-estonia-space/ALUs/pull/25)
+* Polynomial estimation for subtract flat earth phase for each burst in coherence operation - [PR item](https://github.com/cgi-estonia-space/ALUs/pull/26)
 * GRD support for `alus-cal` - [PR item](https://github.com/cgi-estonia-space/ALUs/pull/31)
 
 ## Bug Fixes and Other Changes
@@ -70,8 +69,8 @@ Guido Lemoine Guido.LEMOINE@ec.europa.eu
 
 ## Known Caveats
 * Coherence estimation results can have missing pixels(or coherence 0 values) on north and east direction on coastlines when compared to SNAP.
-  Currently it is unresolved what is the correct way. See examples [A](https://private-user-images.githubusercontent.com/98521380/390646246-24022a16-e1e2-44ad-9001-f0295f9dff94.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNDYtMjQwMjJhMTYtZTFlMi00NGFkLTkwMDEtZjAyOTVmOWRmZjk0LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTBlN2FkZDZmMzBlNmZkY2Q5NzBiMTVkNzE3ODRjODQ3NzU3OGZmMmRlZmViNWIwNTM5NmMwYjkzY2I1ZWYyOTQmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.7vlkaxv2Dxt_aOCIFLkfCOhPwjnSsTUy9eevyG7fEkI)
-  and [B](https://private-user-images.githubusercontent.com/98521380/390646259-dcb73140-0653-469a-b6d3-0f53e8d4f287.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNTktZGNiNzMxNDAtMDY1My00NjlhLWI2ZDMtMGY1M2U4ZDRmMjg3LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTg4YzZiNDUxMDg4NjAyMDFkYTA0NmIwYjc3ZWM4MDllMTkxZDljMjZkNGZjNWIxNGI5Mzg3ZGQxZjE1ODZiYmMmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.Ho2RcvdT2gTteIb8-F5JkgskjssLXwZDATE4wLRMaDo).
+  Currently it is unresolved what is the correct way. See examples [A](https://github.com/user-attachments/assets/24022a16-e1e2-44ad-9001-f0295f9dff94)
+  and [B](https://github.com/user-attachments/assets/dcb73140-0653-469a-b6d3-0f53e8d4f287).
   See posts about the issues/bugs - [tile size affecting results](https://forum.step.esa.int/t/tile-size-is-affecting-coregistration-results/32193/4)
   and [no-data value interpretation](https://forum.step.esa.int/t/coregistration-no-data-value/35304/2).
 * Due to the nature of floating point arithmetic there are some discrepancies when compared to SNAP, see [slideshow](https://github.com/user-attachments/files/17943084/GPU-GSTP-MPR-0008.pdf)
@@ -85,8 +84,8 @@ Guido Lemoine Guido.LEMOINE@ec.europa.eu
 
 ## Bug Fixes and Other Changes
 * 'Secret' log format can be invoked with `--log_format_creodias`. This enables JSON log output with 3 levels - DEBUG, INFO, ERROR - [PR item](https://github.com/cgi-estonia-space/ALUs/pull/14)
-* 'alus-coh' will process scenes without orbit files now, before supplying orbit files was compulsory - [PR item](https://github.com/cgi-estonia-space/ALUs/pull/15)
-* Some scenes had incorrect merge overlap for IW2 and IW3 for all S1 routines, this is now fixed and made faster - [PR item](https://github.com/cgi-estonia-space/ALUs/pull/20)
+* `alus-coh` will process scenes without orbit files now; before supplying orbit files was compulsory - [PR item](https://github.com/cgi-estonia-space/ALUs/pull/15)
+* Some scenes had incorrect merge overlap for IW2 and IW3 for all S1 routines; this is now fixed and made faster - [PR item](https://github.com/cgi-estonia-space/ALUs/pull/20)
 
 ## Thanks to our Contributors
 
@@ -97,8 +96,8 @@ Guido Lemoine Guido.LEMOINE@ec.europa.eu
 
 ## Known Caveats
 * Coherence estimation results can have missing pixels(or coherence 0 values) on north and east direction on coastlines when compared to SNAP.
-  Currently it is unresolved what is the correct way. See examples [A](https://private-user-images.githubusercontent.com/98521380/390646246-24022a16-e1e2-44ad-9001-f0295f9dff94.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNDYtMjQwMjJhMTYtZTFlMi00NGFkLTkwMDEtZjAyOTVmOWRmZjk0LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTBlN2FkZDZmMzBlNmZkY2Q5NzBiMTVkNzE3ODRjODQ3NzU3OGZmMmRlZmViNWIwNTM5NmMwYjkzY2I1ZWYyOTQmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.7vlkaxv2Dxt_aOCIFLkfCOhPwjnSsTUy9eevyG7fEkI)
-  and [B](https://private-user-images.githubusercontent.com/98521380/390646259-dcb73140-0653-469a-b6d3-0f53e8d4f287.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNTktZGNiNzMxNDAtMDY1My00NjlhLWI2ZDMtMGY1M2U4ZDRmMjg3LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTg4YzZiNDUxMDg4NjAyMDFkYTA0NmIwYjc3ZWM4MDllMTkxZDljMjZkNGZjNWIxNGI5Mzg3ZGQxZjE1ODZiYmMmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.Ho2RcvdT2gTteIb8-F5JkgskjssLXwZDATE4wLRMaDo).
+  Currently it is unresolved what is the correct way. See examples [A](https://github.com/user-attachments/assets/24022a16-e1e2-44ad-9001-f0295f9dff94)
+  and [B](https://github.com/user-attachments/assets/dcb73140-0653-469a-b6d3-0f53e8d4f287).
   See posts about the issues/bugs - [tile size affecting results](https://forum.step.esa.int/t/tile-size-is-affecting-coregistration-results/32193/4)
   and [no-data value interpretation](https://forum.step.esa.int/t/coregistration-no-data-value/35304/2).
 * Due to the nature of floating point arithmetic there are some discrepancies when compared to SNAP, see [slideshow](https://github.com/user-attachments/files/17943084/GPU-GSTP-MPR-0008.pdf)
@@ -121,8 +120,8 @@ Guido Lemoine Guido.LEMOINE@ec.europa.eu
 
 ## Known Caveats
 * Coherence estimation results can have missing pixels(or coherence 0 values) on north and east direction on coastlines when compared to SNAP.
-  Currently it is unresolved what is the correct way. See examples [A](https://private-user-images.githubusercontent.com/98521380/390646246-24022a16-e1e2-44ad-9001-f0295f9dff94.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNDYtMjQwMjJhMTYtZTFlMi00NGFkLTkwMDEtZjAyOTVmOWRmZjk0LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTBlN2FkZDZmMzBlNmZkY2Q5NzBiMTVkNzE3ODRjODQ3NzU3OGZmMmRlZmViNWIwNTM5NmMwYjkzY2I1ZWYyOTQmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.7vlkaxv2Dxt_aOCIFLkfCOhPwjnSsTUy9eevyG7fEkI)
-  and [B](https://private-user-images.githubusercontent.com/98521380/390646259-dcb73140-0653-469a-b6d3-0f53e8d4f287.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNTktZGNiNzMxNDAtMDY1My00NjlhLWI2ZDMtMGY1M2U4ZDRmMjg3LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTg4YzZiNDUxMDg4NjAyMDFkYTA0NmIwYjc3ZWM4MDllMTkxZDljMjZkNGZjNWIxNGI5Mzg3ZGQxZjE1ODZiYmMmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.Ho2RcvdT2gTteIb8-F5JkgskjssLXwZDATE4wLRMaDo).
+  Currently it is unresolved what is the correct way. See examples [A](https://github.com/user-attachments/assets/24022a16-e1e2-44ad-9001-f0295f9dff94)
+  and [B](https://github.com/user-attachments/assets/dcb73140-0653-469a-b6d3-0f53e8d4f287).
   See posts about the issues/bugs - [tile size affecting results](https://forum.step.esa.int/t/tile-size-is-affecting-coregistration-results/32193/4)
   and [no-data value interpretation](https://forum.step.esa.int/t/coregistration-no-data-value/35304/2).
 * Due to the nature of floating point arithmetic there are some discrepancies when compared to SNAP, see [slideshow](https://github.com/user-attachments/files/17943084/GPU-GSTP-MPR-0008.pdf)
@@ -144,8 +143,8 @@ Guido Lemoine Guido.LEMOINE@ec.europa.eu
 
 ## Known Caveats
 * Coherence estimation results can have missing pixels(or coherence 0 values) on north and east direction on coastlines when compared to SNAP.
-  Currently it is unresolved what is the correct way. See examples [A](https://private-user-images.githubusercontent.com/98521380/390646246-24022a16-e1e2-44ad-9001-f0295f9dff94.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNDYtMjQwMjJhMTYtZTFlMi00NGFkLTkwMDEtZjAyOTVmOWRmZjk0LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTBlN2FkZDZmMzBlNmZkY2Q5NzBiMTVkNzE3ODRjODQ3NzU3OGZmMmRlZmViNWIwNTM5NmMwYjkzY2I1ZWYyOTQmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.7vlkaxv2Dxt_aOCIFLkfCOhPwjnSsTUy9eevyG7fEkI)
-  and [B](https://private-user-images.githubusercontent.com/98521380/390646259-dcb73140-0653-469a-b6d3-0f53e8d4f287.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNTktZGNiNzMxNDAtMDY1My00NjlhLWI2ZDMtMGY1M2U4ZDRmMjg3LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTg4YzZiNDUxMDg4NjAyMDFkYTA0NmIwYjc3ZWM4MDllMTkxZDljMjZkNGZjNWIxNGI5Mzg3ZGQxZjE1ODZiYmMmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.Ho2RcvdT2gTteIb8-F5JkgskjssLXwZDATE4wLRMaDo).
+  Currently it is unresolved what is the correct way. See examples [A](https://github.com/user-attachments/assets/24022a16-e1e2-44ad-9001-f0295f9dff94)
+  and [B](https://github.com/user-attachments/assets/dcb73140-0653-469a-b6d3-0f53e8d4f287).
   See posts about the issues/bugs - [tile size affecting results](https://forum.step.esa.int/t/tile-size-is-affecting-coregistration-results/32193/4)
   and [no-data value interpretation](https://forum.step.esa.int/t/coregistration-no-data-value/35304/2).
 * Due to the nature of floating point arithmetic there are some discrepancies when compared to SNAP, see [slideshow](https://github.com/user-attachments/files/17943084/GPU-GSTP-MPR-0008.pdf)
@@ -172,8 +171,8 @@ Guido Lemoine Guido.LEMOINE@ec.europa.eu
 
 ## Known Caveats
 * Coherence estimation results can have missing pixels(or coherence 0 values) on north and east direction on coastlines when compared to SNAP.
-  Currently it is unresolved what is the correct way. See examples [A](https://private-user-images.githubusercontent.com/98521380/390646246-24022a16-e1e2-44ad-9001-f0295f9dff94.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNDYtMjQwMjJhMTYtZTFlMi00NGFkLTkwMDEtZjAyOTVmOWRmZjk0LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTBlN2FkZDZmMzBlNmZkY2Q5NzBiMTVkNzE3ODRjODQ3NzU3OGZmMmRlZmViNWIwNTM5NmMwYjkzY2I1ZWYyOTQmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.7vlkaxv2Dxt_aOCIFLkfCOhPwjnSsTUy9eevyG7fEkI)
-  and [B](https://private-user-images.githubusercontent.com/98521380/390646259-dcb73140-0653-469a-b6d3-0f53e8d4f287.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNTktZGNiNzMxNDAtMDY1My00NjlhLWI2ZDMtMGY1M2U4ZDRmMjg3LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTg4YzZiNDUxMDg4NjAyMDFkYTA0NmIwYjc3ZWM4MDllMTkxZDljMjZkNGZjNWIxNGI5Mzg3ZGQxZjE1ODZiYmMmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.Ho2RcvdT2gTteIb8-F5JkgskjssLXwZDATE4wLRMaDo).
+  Currently it is unresolved what is the correct way. See examples [A](https://github.com/user-attachments/assets/24022a16-e1e2-44ad-9001-f0295f9dff94)
+  and [B](https://github.com/user-attachments/assets/dcb73140-0653-469a-b6d3-0f53e8d4f287).
   See posts about the issues/bugs - [tile size affecting results](https://forum.step.esa.int/t/tile-size-is-affecting-coregistration-results/32193/4)
   and [no-data value interpretation](https://forum.step.esa.int/t/coregistration-no-data-value/35304/2).
 * Due to the nature of floating point arithmetic there are some discrepancies when compared to SNAP, see [slideshow](https://github.com/user-attachments/files/17943084/GPU-GSTP-MPR-0008.pdf)
@@ -207,15 +206,13 @@ This is the first release with refactored architecture where each processor is a
 
 ## Known Caveats
 * Coherence estimation results can have missing pixels(or coherence 0 values) on north and east direction on coastlines when compared to SNAP.
-  Currently it is unresolved what is the correct way. See examples [A](https://private-user-images.githubusercontent.com/98521380/390646246-24022a16-e1e2-44ad-9001-f0295f9dff94.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNDYtMjQwMjJhMTYtZTFlMi00NGFkLTkwMDEtZjAyOTVmOWRmZjk0LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTBlN2FkZDZmMzBlNmZkY2Q5NzBiMTVkNzE3ODRjODQ3NzU3OGZmMmRlZmViNWIwNTM5NmMwYjkzY2I1ZWYyOTQmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.7vlkaxv2Dxt_aOCIFLkfCOhPwjnSsTUy9eevyG7fEkI)
-  and [B](https://private-user-images.githubusercontent.com/98521380/390646259-dcb73140-0653-469a-b6d3-0f53e8d4f287.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNTktZGNiNzMxNDAtMDY1My00NjlhLWI2ZDMtMGY1M2U4ZDRmMjg3LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTg4YzZiNDUxMDg4NjAyMDFkYTA0NmIwYjc3ZWM4MDllMTkxZDljMjZkNGZjNWIxNGI5Mzg3ZGQxZjE1ODZiYmMmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.Ho2RcvdT2gTteIb8-F5JkgskjssLXwZDATE4wLRMaDo).
+  Currently it is unresolved what is the correct way. See examples [A](https://github.com/user-attachments/assets/24022a16-e1e2-44ad-9001-f0295f9dff94)
+  and [B](https://github.com/user-attachments/assets/dcb73140-0653-469a-b6d3-0f53e8d4f287).
   See posts about the issues/bugs - [tile size affecting results](https://forum.step.esa.int/t/tile-size-is-affecting-coregistration-results/32193/4)
   and [no-data value interpretation](https://forum.step.esa.int/t/coregistration-no-data-value/35304/2).
 * Due to the nature of floating point arithmetic there are some discrepancies when compared to SNAP, see [slideshow](https://github.com/user-attachments/files/17943084/GPU-GSTP-MPR-0008.pdf)
 
 ## Major Features and Improvements
-* There is a Jupyter notebook, which enables to more easily assign processing parameters, inputs and it automatically downloads needed auxiliary files background. 
-  This should not be used for speed comparisons, because data transfers and unpacking ZIP archives would consume most of the total processing time.
 * GPU device initialization and property component implemented - based on this functionality resources and parameters could be assigned better
 
 ## Bug Fixes and Other Changes
@@ -236,8 +233,8 @@ This will be the last release with the current architecture (algorithms as share
 
 * Auxiliary files must be separately downloaded and supplied via CLI arguments.
 * Coherence estimation results can have missing pixels(or coherence 0 values) on north and east direction on coastlines.
-  Currently investigation is ongoing to find out the exact reason. See examples [A](https://private-user-images.githubusercontent.com/98521380/390646246-24022a16-e1e2-44ad-9001-f0295f9dff94.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNDYtMjQwMjJhMTYtZTFlMi00NGFkLTkwMDEtZjAyOTVmOWRmZjk0LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTBlN2FkZDZmMzBlNmZkY2Q5NzBiMTVkNzE3ODRjODQ3NzU3OGZmMmRlZmViNWIwNTM5NmMwYjkzY2I1ZWYyOTQmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.7vlkaxv2Dxt_aOCIFLkfCOhPwjnSsTUy9eevyG7fEkI)
-  and [B](https://private-user-images.githubusercontent.com/98521380/390646259-dcb73140-0653-469a-b6d3-0f53e8d4f287.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNTktZGNiNzMxNDAtMDY1My00NjlhLWI2ZDMtMGY1M2U4ZDRmMjg3LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTg4YzZiNDUxMDg4NjAyMDFkYTA0NmIwYjc3ZWM4MDllMTkxZDljMjZkNGZjNWIxNGI5Mzg3ZGQxZjE1ODZiYmMmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.Ho2RcvdT2gTteIb8-F5JkgskjssLXwZDATE4wLRMaDo).
+  Currently investigation is ongoing to find out the exact reason. See examples [A](https://github.com/user-attachments/assets/24022a16-e1e2-44ad-9001-f0295f9dff94)
+  and [B](https://github.com/user-attachments/assets/dcb73140-0653-469a-b6d3-0f53e8d4f287).
 
 ## Major Features and Improvements
 
@@ -257,8 +254,8 @@ This will be the last release with the current architecture (algorithms as share
 
 * Auxiliary files must be separately downloaded and supplied via CLI arguments
 * Coherence estimation results can have missing pixels(or coherence 0 values) on north and east direction on coastlines.
-  Currently investigation is ongoing to find out the exact reason. See examples [A](https://private-user-images.githubusercontent.com/98521380/390646246-24022a16-e1e2-44ad-9001-f0295f9dff94.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNDYtMjQwMjJhMTYtZTFlMi00NGFkLTkwMDEtZjAyOTVmOWRmZjk0LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTBlN2FkZDZmMzBlNmZkY2Q5NzBiMTVkNzE3ODRjODQ3NzU3OGZmMmRlZmViNWIwNTM5NmMwYjkzY2I1ZWYyOTQmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.7vlkaxv2Dxt_aOCIFLkfCOhPwjnSsTUy9eevyG7fEkI)
-  and [B](https://private-user-images.githubusercontent.com/98521380/390646259-dcb73140-0653-469a-b6d3-0f53e8d4f287.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzI3NzExNDIsIm5iZiI6MTczMjc3MDg0MiwicGF0aCI6Ii85ODUyMTM4MC8zOTA2NDYyNTktZGNiNzMxNDAtMDY1My00NjlhLWI2ZDMtMGY1M2U4ZDRmMjg3LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDExMjglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQxMTI4VDA1MTQwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTg4YzZiNDUxMDg4NjAyMDFkYTA0NmIwYjc3ZWM4MDllMTkxZDljMjZkNGZjNWIxNGI5Mzg3ZGQxZjE1ODZiYmMmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.Ho2RcvdT2gTteIb8-F5JkgskjssLXwZDATE4wLRMaDo).
+  Currently investigation is ongoing to find out the exact reason. See examples [A](https://github.com/user-attachments/assets/24022a16-e1e2-44ad-9001-f0295f9dff94)
+  and [B](https://github.com/user-attachments/assets/dcb73140-0653-469a-b6d3-0f53e8d4f287).
 
 ## Major Features and Improvements
 
@@ -277,8 +274,7 @@ This will be the last release with the current architecture (algorithms as share
 
 ## Breaking changes
 
-* Git LFS references removed
-  * Replaced by custom `.alus-lfs` script in the root of the repository along with `alusresources` file
+* Git LFS references removed and replaced by external resource downloads
   * CI pipelines are now 2x and more faster
 
 ## Known Caveats

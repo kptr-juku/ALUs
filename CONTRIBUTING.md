@@ -86,10 +86,5 @@ Line length is 120 characters.
 
 # Development build verification
 
-For verification of code base a script can be called from the root of the repo
-
-```
-build-automation/build_and_run_ci.sh
-```
-
-Same script is run by the CI verification. This runs all the unit and integration tests too.
+Use [ALUs-platform](https://github.com/kptr-juku/ALUs-platform) to prepare the development environment and build the
+repository. Repository test entry points may then be run from that environment.

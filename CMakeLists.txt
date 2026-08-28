@@ -47,8 +47,6 @@ find_package(Eigen3 REQUIRED)
 
 set(ALUS_BINARY_OUTPUT_DIR ${PROJECT_BINARY_DIR}/alus_package)
 set(ALUS_UNIT_TEST_BINARY_OUTPUT_DIR ${PROJECT_BINARY_DIR}/unit-test)
-set(ALUS_LFS_INVOKE ${CMAKE_CURRENT_LIST_DIR}/.alus-lfs)
-set(ALUS_LFS_GOODS ${CMAKE_CURRENT_LIST_DIR}/resources)
 
 option(ENABLE_TESTS "Enable tests" OFF)
 
@@ -184,6 +182,7 @@ if (ENABLE_TESTS)
                 )
     endforeach ()
 
-    # Integration tests fetch datasets listed in .alusresources, which are no longer available.
+    # Integration tests require external datasets which have been removed hence it is not part of the default test build
+    # anymore.
     # add_subdirectory(test-integration)
 endif ()
