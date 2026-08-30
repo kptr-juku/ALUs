@@ -14,8 +14,10 @@
 
 #include "execute.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <future>
+#include <iterator>
 #include <string>
 
 #include <boost/algorithm/string/join.hpp>
@@ -94,6 +96,7 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
     }
 
     std::vector<std::shared_ptr<snapengine::Product>> deb_products;
+    std::vector<std::string> processed_swaths;
     const auto* d_elevation_tiles = dem_assistant->GetElevationManager()->GetBuffers();
     const size_t elevation_tiles_length = dem_assistant->GetElevationManager()->GetTileCount();
     const auto* d_elevation_tiles_prop = dem_assistant->GetElevationManager()->GetProperties();
@@ -101,15 +104,18 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
     const auto elevation_tile_type = dem_assistant->GetType();
     const auto* d_egm96_values = dem_assistant->GetEgm96Manager()->GetDeviceValues();
 
-    size_t secondary_index = 0;
     for (size_t reference_index = 0; reference_index < reference_splits.size(); reference_index++) {
         const auto& reference_swath = reference_swath_selection.at(reference_index);
-        const auto& secondary_swath = secondary_swath_selection.at(secondary_index);
-        if (reference_swath != secondary_swath) {
-            LOGW << "Skipping master swath, no coverage in slave" << reference_swath;
+        const auto secondary_swath =
+            std::find(secondary_swath_selection.begin(), secondary_swath_selection.end(), reference_swath);
+        if (secondary_swath == secondary_swath_selection.end()) {
+            LOGW << "Skipping reference swath, no coverage in secondary " << reference_swath;
             continue;
         }
+        const auto secondary_index =
+            static_cast<size_t>(std::distance(secondary_swath_selection.begin(), secondary_swath));
         const std::string& swath = reference_swath;
+        processed_swaths.push_back(swath);
         std::shared_ptr<snapengine::Product> main_product{};
         std::shared_ptr<snapengine::Product> secondary_product{};
 
@@ -126,7 +132,6 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
             coregistration::Coregistration coreg;
 
             coreg.Initialize(reference_splits.at(reference_index), secondary_splits.at(secondary_index));
-            secondary_index++;
 
             coreg.DoWork(d_egm96_values, {d_elevation_tiles, elevation_tiles_length},
                          params_.mask_out_area_without_elevation, d_elevation_tiles_prop, elevation_tiles_host_prop,
@@ -299,6 +304,12 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
         debursted_product->SetImageReader(deb_reader);
         deb_products.push_back(debursted_product);
     }
+
+    if (deb_products.empty()) {
+        THROW_ALGORITHM_EXCEPTION(ALG_NAME, "Reference and secondary products have no common subswaths.");
+    }
+    metadata_.AddWhenMissing(common::metadata::sentinel1::AREA_SELECTION,
+                             params_.aoi.empty() ? boost::algorithm::join(processed_swaths, " ") : params_.aoi);
 
     std::shared_ptr<snapengine::Product> tc_input;
 
@@ -566,6 +577,7 @@ std::string Execute::SplitApplyOrbit(const std::string& path, size_t burst_index
     auto reader_plug_in = std::make_shared<alus::s1tbx::Sentinel1ProductReaderPlugIn>();
     auto reader = reader_plug_in->CreateReaderInstance();
     auto product = reader->ReadProductNodes(boost::filesystem::canonical(path), nullptr);
+    const auto available_swaths = s1tbx::Sentinel1Utils::GetSubSwathNames(product);
 
     if (!params_.subswath.empty()) {
         swath_selection = {params_.subswath};
@@ -573,7 +585,6 @@ std::string Execute::SplitApplyOrbit(const std::string& path, size_t burst_index
         if (!params_.aoi.empty()) {
             split = std::make_unique<topsarsplit::TopsarSplit>(product, params_.subswath, params_.polarisation,
                                                                params_.aoi);
-            metadata_.AddWhenMissing(common::metadata::sentinel1::AREA_SELECTION, params_.aoi);
         } else {
             if (burst_index_start == burst_index_end && burst_index_start < FULL_SUBSWATH_BURST_INDEX_START) {
                 burst_index_start = FULL_SUBSWATH_BURST_INDEX_START;
@@ -581,14 +592,12 @@ std::string Execute::SplitApplyOrbit(const std::string& path, size_t burst_index
             }
             split = std::make_unique<topsarsplit::TopsarSplit>(product, params_.subswath, params_.polarisation,
                                                                burst_index_start, burst_index_end);
-            metadata_.AddWhenMissing(common::metadata::sentinel1::AREA_SELECTION, params_.subswath);
         }
         split->Initialize();
         splits.push_back(std::move(split));
     } else if (params_.aoi.empty()) {
-        swath_selection = {"IW1", "IW2", "IW3"};
-        metadata_.AddWhenMissing(common::metadata::sentinel1::AREA_SELECTION, "IW1 IW2 IW3");
-        for (std::string_view swath : swath_selection) {
+        swath_selection = available_swaths;
+        for (const auto& swath : swath_selection) {
             splits.push_back(std::make_unique<topsarsplit::TopsarSplit>(product, swath, params_.polarisation));
             splits.back()->Initialize();
         }
@@ -596,8 +605,7 @@ std::string Execute::SplitApplyOrbit(const std::string& path, size_t burst_index
         // search for valid swaths with AOI
         topsarsplit::Aoi aoi_poly;
         boost::geometry::read_wkt(params_.aoi, aoi_poly);
-        metadata_.AddWhenMissing(common::metadata::sentinel1::AREA_SELECTION, params_.aoi);
-        for (std::string_view swath : {"IW1", "IW2", "IW3"}) {
+        for (const auto& swath : available_swaths) {
             auto swath_split = std::make_unique<topsarsplit::TopsarSplit>(product, swath, params_.polarisation);
             swath_split->Initialize();
 
@@ -608,7 +616,7 @@ std::string Execute::SplitApplyOrbit(const std::string& path, size_t burst_index
                 splits.push_back(
                     std::make_unique<topsarsplit::TopsarSplit>(product, swath, params_.polarisation, params_.aoi));
                 splits.back()->Initialize();
-                swath_selection = {std::string{swath}};
+                swath_selection = {swath};
                 break;
             }
             if (topsarsplit::IsCovered(swath_poly, aoi_poly)) {

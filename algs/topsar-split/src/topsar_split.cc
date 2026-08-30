@@ -123,14 +123,15 @@ void TopsarSplit::Initialize() {
     validator.CheckProductType({"SLC"});
     validator.CheckAcquisitionMode({"IW", "EW"});
 
-    std::shared_ptr<snapengine::MetadataElement> abs_root =
-        snapengine::AbstractMetadata::GetAbstractedMetadata(source_product_);
+    s1_utils_ = std::make_unique<s1tbx::Sentinel1Utils>(source_product_);
     if (subswath_.empty()) {
-        subswath_ = abs_root->GetAttributeString(snapengine::AbstractMetadata::ACQUISITION_MODE) + "1";
+        if (s1_utils_->GetSubSwathNames().empty()) {
+            throw common::AlgorithmException(ALG_NAME, "No subswaths found in source product");
+        }
+        subswath_ = s1_utils_->GetSubSwathNames().front();
     }
 
     // TODO(unknown): forget the index, find the pointer.
-    s1_utils_ = std::make_unique<s1tbx::Sentinel1Utils>(source_product_);
     const std::vector<std::shared_ptr<s1tbx::SubSwathInfo>>& subswath_info = s1_utils_->GetSubSwath();
     for (size_t i = 0; i < subswath_info.size(); i++) {
         if (subswath_info.at(i)->subswath_name_.find(subswath_) != std::string::npos) {

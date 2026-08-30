@@ -923,6 +923,37 @@ std::vector<CalibrationVector> Sentinel1Utils::GetCalibrationVectors(
     return calibration_vectors;
 }
 const std::vector<std::string>& Sentinel1Utils::GetSubSwathNames() const { return sub_swath_names_; }
+
+std::vector<std::string> Sentinel1Utils::GetSubSwathNames(const std::shared_ptr<snapengine::Product>& product) {
+    const auto abs_root = snapengine::AbstractMetadata::GetAbstractedMetadata(product);
+    const auto acquisition_mode = abs_root->GetAttributeString(snapengine::AbstractMetadata::ACQUISITION_MODE);
+    std::vector<std::string> sub_swath_names;
+
+    for (const auto& element : abs_root->GetElements()) {
+        if (boost::algorithm::contains(element->GetName(), acquisition_mode)) {
+            const auto swath = element->GetAttributeString(snapengine::AbstractMetadata::SWATH);
+            if (std::find(sub_swath_names.begin(), sub_swath_names.end(), swath) == sub_swath_names.end()) {
+                sub_swath_names.push_back(swath);
+            }
+        }
+    }
+
+    if (sub_swath_names.empty()) {
+        for (const auto& band_name : product->GetBandNames()) {
+            const auto mode_position = band_name.find(acquisition_mode);
+            if (mode_position != std::string::npos) {
+                const auto swath = band_name.substr(mode_position, acquisition_mode.size() + 1);
+                if (std::find(sub_swath_names.begin(), sub_swath_names.end(), swath) == sub_swath_names.end()) {
+                    sub_swath_names.push_back(swath);
+                }
+            }
+        }
+    }
+
+    std::sort(sub_swath_names.begin(), sub_swath_names.end());
+    return sub_swath_names;
+}
+
 const std::vector<std::string>& Sentinel1Utils::GetPolarizations() const { return polarizations_; }
 const std::vector<std::shared_ptr<SubSwathInfo>>& Sentinel1Utils::GetSubSwath() const { return subswath_; }
 int Sentinel1Utils::GetNumOfSubSwath() const { return num_of_sub_swath_; }
@@ -1062,33 +1093,7 @@ void Sentinel1Utils::GetProductAcquisitionMode() {
 }
 
 void Sentinel1Utils::GetProductSubSwathNames() {
-    std::vector<std::shared_ptr<snapengine::MetadataElement>> elems = abs_root_->GetElements();
-    std::vector<std::string> sub_swath_name_list;
-    for (const auto& elem : elems) {
-        if (boost::algorithm::contains(elem->GetName(), acquisition_mode_)) {
-            std::string swath{elem->GetAttributeString("swath")};
-            if (std::find(sub_swath_name_list.begin(), sub_swath_name_list.end(), swath) == sub_swath_name_list.end()) {
-                sub_swath_name_list.emplace_back(swath);
-            }
-        }
-    }
-
-    if (sub_swath_name_list.empty()) {
-        std::vector<std::string> source_band_names = source_product_->GetBandNames();
-        for (const auto& band_name : source_band_names) {
-            if (boost::algorithm::contains(band_name, acquisition_mode_)) {
-                auto idx = static_cast<int>(band_name.find(acquisition_mode_));
-                const int sub_swath_name_length{3};
-                std::string sub_swath_name{band_name.substr(idx, sub_swath_name_length)};
-                if (std::find(sub_swath_name_list.begin(), sub_swath_name_list.end(), sub_swath_name) ==
-                    sub_swath_name_list.end()) {
-                    sub_swath_name_list.emplace_back(sub_swath_name);
-                }
-            }
-        }
-    }
-    sub_swath_names_ = sub_swath_name_list;
-    std::sort(sub_swath_names_.begin(), sub_swath_names_.end());
+    sub_swath_names_ = GetSubSwathNames(source_product_);
     num_of_sub_swath_ = static_cast<int>(sub_swath_names_.size());
 }
 

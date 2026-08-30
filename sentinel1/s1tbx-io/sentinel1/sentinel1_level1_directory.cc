@@ -29,6 +29,7 @@
 #include "general_constants.h"
 #include "general_utils.h"
 #include "s1tbx-commons/io/sar_reader.h"
+#include "s1tbx-commons/sentinel1_utils.h"
 #include "s1tbx-io/sentinel1/sentinel1_constants.h"
 #include "snap-core/core/datamodel/band.h"
 #include "snap-core/core/datamodel/i_geo_coding.h"
@@ -532,38 +533,25 @@ void Sentinel1Level1Directory::AddGeoCoding(const std::shared_ptr<snapengine::Pr
 
     const std::shared_ptr<snapengine::MetadataElement> abs_root =
         snapengine::AbstractMetadata::GetAbstractedMetadata(product);
-    std::string acquisition_mode = abs_root->GetAttributeString(snapengine::AbstractMetadata::ACQUISITION_MODE);
-    int num_of_sub_swath;
-    if (acquisition_mode == "IW") {
-        num_of_sub_swath = 3;  // NOLINT
-    } else if (acquisition_mode == "EW") {
-        num_of_sub_swath = 5;  // NOLINT
-    } else {
-        num_of_sub_swath = 1;  // NOLINT
-    }
-
-    std::vector<std::string> band_names = product->GetBandNames();
+    const auto band_names = product->GetBandNames();
+    const auto sub_swath_names = Sentinel1Utils::GetSubSwathNames(product);
     std::shared_ptr<snapengine::Band> first_s_w_band;
     std::shared_ptr<snapengine::Band> last_s_w_band;
-    bool first_s_w_band_found = false;
-    bool last_s_w_band_found = false;
 
-    for (auto& band_name : band_names) {
-        if (!first_s_w_band_found && band_name.find(acquisition_mode + std::to_string(1)) != std::string::npos) {
-            first_s_w_band = product->GetBand(band_name);
-            first_s_w_band_found = true;
-        }
-
-        if (!last_s_w_band_found &&
-            band_name.find(acquisition_mode + std::to_string(num_of_sub_swath)) != std::string::npos) {
-            last_s_w_band = product->GetBand(band_name);
-            last_s_w_band_found = true;
+    if (!sub_swath_names.empty()) {
+        for (const auto& band_name : band_names) {
+            if (first_s_w_band == nullptr && band_name.find(sub_swath_names.front()) != std::string::npos) {
+                first_s_w_band = product->GetBand(band_name);
+            }
+            if (last_s_w_band == nullptr && band_name.find(sub_swath_names.back()) != std::string::npos) {
+                last_s_w_band = product->GetBand(band_name);
+            }
         }
     }
     if (!band_names.empty()) {
         if (first_s_w_band != nullptr && last_s_w_band != nullptr) {
-            const std::string first_s_w_prefix = acquisition_mode + std::to_string(1) + '_';
-            const std::string last_s_w_prefix = acquisition_mode + std::to_string(num_of_sub_swath) + '_';
+            const std::string first_s_w_prefix = sub_swath_names.front() + '_';
+            const std::string last_s_w_prefix = sub_swath_names.back() + '_';
             const auto first_s_w_band_geo_coding = band_geocoding_map_.find(first_s_w_prefix);
             const auto last_s_w_band_geo_coding = band_geocoding_map_.find(last_s_w_prefix);
             if (first_s_w_band_geo_coding != band_geocoding_map_.end() &&
