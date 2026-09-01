@@ -439,7 +439,7 @@ void Execute::RunSinglePair(alus::cuda::CudaInit& cuda_init, size_t) {
     cuda_device.Set();
     LOGI << "Using '" << cuda_device.GetName() << "' device nr " << cuda_device.GetDeviceNr() << " for calculations";
 
-    const std::string reference_name = std::filesystem::path(params_.input_reference).filename().stem().string();
+    const std::string reference_name = reference_splits.front()->GetTargetProduct()->GetName();
     CalcSingleCoherence(reference_splits, secondary_splits, reference_swath_selection, secondary_swath_selection,
                         reference_name, dem_assistant.get());
     dem_assistant->GetElevationManager()->ReleaseFromDevice();
@@ -635,9 +635,16 @@ std::string Execute::SplitApplyOrbit(const std::string& path, size_t burst_index
                                   "Specified AOI and/or swath arguments result in no subswaths to be processed.");
     }
 
+    auto product_path = std::filesystem::path(product->GetFileLocation().string());
+    if (product_path.filename() == "manifest.safe") {
+        LOGV << "Sentinel-1 product location points to '" << product_path.string()
+             << "'; using its parent directory as the SAFE raster root";
+        product_path.remove_filename();
+    }
+
     std::string orbit_source;
     for (const auto& split : splits) {
-        split->OpenPixelReader(path);
+        split->OpenPixelReader(product_path.string());
         auto orbit_op = std::make_unique<s1tbx::ApplyOrbitFileOp>(split->GetTargetProduct(), true);
         if (params_.orbit_dir.empty() && !snapengine::AlusUtils::IsOrbitFileAssigned()) {
             LOGI << "No orbital information update for " << split->GetTargetProduct()->GetName() << " "
