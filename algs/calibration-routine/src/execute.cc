@@ -317,6 +317,8 @@ void Execute::ApplyOrbitFile(const std::shared_ptr<snapengine::Product>& product
 void Execute::Split(std::shared_ptr<snapengine::Product> product, size_t burst_index_start, size_t burst_index_end,
                     std::vector<std::shared_ptr<topsarsplit::TopsarSplit>>& splits,
                     std::vector<std::string>& swath_selection) {
+    const auto available_swaths = s1tbx::Sentinel1Utils::GetSubSwathNames(product);
+
     if (!params_.subswath.empty()) {
         swath_selection = {params_.subswath};
         std::unique_ptr<topsarsplit::TopsarSplit> split_op{};
@@ -336,8 +338,9 @@ void Execute::Split(std::shared_ptr<snapengine::Product> product, size_t burst_i
         split_op->Initialize();
         splits.push_back(std::move(split_op));
     } else if (params_.aoi.empty()) {
-        swath_selection = {"IW1", "IW2", "IW3"};
-        metadata_.AddWhenMissing(common::metadata::sentinel1::AREA_SELECTION, "IW1 IW2 IW3");
+        swath_selection = available_swaths;
+        metadata_.AddWhenMissing(common::metadata::sentinel1::AREA_SELECTION,
+                                 boost::algorithm::join(swath_selection, " "));
         for (const auto& swath : swath_selection) {
             splits.push_back(std::make_unique<topsarsplit::TopsarSplit>(product, swath, params_.polarisation));
             splits.back()->Initialize();
@@ -347,7 +350,7 @@ void Execute::Split(std::shared_ptr<snapengine::Product> product, size_t burst_i
         topsarsplit::Aoi aoi_poly;
         boost::geometry::read_wkt(params_.aoi, aoi_poly);
         metadata_.AddWhenMissing(common::metadata::sentinel1::AREA_SELECTION, params_.aoi);
-        for (const auto& swath : {"IW1", "IW2", "IW3"}) {
+        for (const auto& swath : available_swaths) {
             auto swath_split = std::make_unique<topsarsplit::TopsarSplit>(product, swath, params_.polarisation);
             swath_split->Initialize();
 
@@ -358,7 +361,7 @@ void Execute::Split(std::shared_ptr<snapengine::Product> product, size_t burst_i
                 splits.push_back(
                     std::make_unique<topsarsplit::TopsarSplit>(product, swath, params_.polarisation, params_.aoi));
                 splits.back()->Initialize();
-                swath_selection = {std::string(swath)};
+                swath_selection = {swath};
                 break;
             }
             if (topsarsplit::IsCovered(swath_poly, aoi_poly)) {
