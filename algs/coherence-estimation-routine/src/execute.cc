@@ -18,6 +18,9 @@
 #include <filesystem>
 #include <future>
 #include <iterator>
+#include <limits>
+#include <memory>
+#include <optional>
 #include <string>
 
 #include <boost/algorithm/string/join.hpp>
@@ -32,6 +35,7 @@
 #include "coregistration_controller.h"
 #include "cuda_algorithm_runner.h"
 #include "dem_assistant.h"
+#include "etad_preparation.h"
 #include "gdal_image_reader.h"
 #include "gdal_image_writer.h"
 #include "gdal_management.h"
@@ -41,6 +45,8 @@
 #include "metadata_record.h"
 #include "product.h"
 #include "s1tbx-io/sentinel1/sentinel1_product_reader_plug_in.h"
+#include "sentinel1_etad_product.h"
+#include "slc_metadata.h"
 #include "snap-core/core/util/alus_utils.h"
 #include "snap-core/core/util/system_utils.h"
 #include "terrain_correction.h"
@@ -104,6 +110,21 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
     const auto elevation_tile_type = dem_assistant->GetType();
     const auto* d_egm96_values = dem_assistant->GetEgm96Manager()->GetDeviceValues();
 
+    const bool apply_etad = !params_.etad_reference.empty();
+    std::optional<s1tbx::Sentinel1EtadProduct> reference_etad;
+    std::optional<s1tbx::Sentinel1EtadProduct> secondary_etad;
+    if (apply_etad) {
+        reference_etad.emplace(s1tbx::Sentinel1EtadProduct::Open(params_.etad_reference));
+        secondary_etad.emplace(s1tbx::Sentinel1EtadProduct::Open(params_.etad_secondary));
+        metadata_.AddWhenMissing(common::metadata::sentinel1::ETAD_CORRECTION_APPLIED, "1");
+        metadata_.AddWhenMissing(common::metadata::sentinel1::ETAD_GEOMETRY_APPLIED, "0");
+        metadata_.AddWhenMissing(common::metadata::sentinel1::ETAD_PHASE_APPLIED, "1");
+        metadata_.AddWhenMissing(common::metadata::sentinel1::ETAD_AZIMUTH_APPLIED, "0");
+        metadata_.AddWhenMissing(common::metadata::sentinel1::ETAD_CORRECTION_FLAG, "1");
+        metadata_.AddWhenMissing(common::metadata::sentinel1::ETAD_PRODUCT_REFERENCE, reference_etad->GetName());
+        metadata_.AddWhenMissing(common::metadata::sentinel1::ETAD_PRODUCT_SECONDARY, secondary_etad->GetName());
+    }
+
     for (size_t reference_index = 0; reference_index < reference_splits.size(); reference_index++) {
         const auto& reference_swath = reference_swath_selection.at(reference_index);
         const auto secondary_swath =
@@ -123,15 +144,38 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
         if (reference_swath_selection.size() > 1U) {
             cor_output_file += swath + "_";
         }
-        cor_output_file += "Orb_Stack";
+        cor_output_file += apply_etad ? "Orb_etad_Stack" : "Orb_Stack";
 
         std::vector<GDALDataset*> coreg_output_datasets;
         {
             const auto coreg_start = std::chrono::steady_clock::now();
 
             coregistration::Coregistration coreg;
+            std::shared_ptr<const s1tbx::etad::PreparedPair> etad_pair;
+            if (apply_etad) {
+                const auto& reference_split = reference_splits.at(reference_index);
+                const auto& secondary_split = secondary_splits.at(secondary_index);
+                const auto reference_slc =
+                    s1tbx::slc::ReadMetadata(params_.input_reference, swath, params_.polarisation);
+                const auto secondary_slc =
+                    s1tbx::slc::ReadMetadata(params_.input_secondary, swath, params_.polarisation);
+                const s1tbx::etad::BurstSelection reference_selection{
+                    reference_split->GetFirstBurstIndex() - topsarsplit::TopsarSplit::BURST_INDEX_OFFSET,
+                    reference_split->GetLastBurstIndex() - reference_split->GetFirstBurstIndex() + 1,
+                };
+                const s1tbx::etad::BurstSelection secondary_selection{
+                    secondary_split->GetFirstBurstIndex() - topsarsplit::TopsarSplit::BURST_INDEX_OFFSET,
+                    secondary_split->GetLastBurstIndex() - secondary_split->GetFirstBurstIndex() + 1,
+                };
+                auto prepared_pair = std::make_shared<s1tbx::etad::PreparedPair>();
+                prepared_pair->reference = std::make_shared<s1tbx::etad::PreparedAcquisition>(
+                    s1tbx::etad::PrepareInSar(reference_slc, reference_selection, reference_etad.value()));
+                prepared_pair->secondary = std::make_shared<s1tbx::etad::PreparedAcquisition>(
+                    s1tbx::etad::PrepareInSar(secondary_slc, secondary_selection, secondary_etad.value()));
+                etad_pair = std::move(prepared_pair);
+            }
 
-            coreg.Initialize(reference_splits.at(reference_index), secondary_splits.at(secondary_index));
+            coreg.Initialize(reference_splits.at(reference_index), secondary_splits.at(secondary_index), etad_pair);
 
             coreg.DoWork(d_egm96_values, {d_elevation_tiles, elevation_tiles_length},
                          params_.mask_out_area_without_elevation, d_elevation_tiles_prop, elevation_tiles_host_prop,
@@ -154,6 +198,29 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
                 GeoTiffWriteFile(coreg_output_datasets.at(1), cor_output_file + "_mst_Q");
                 GeoTiffWriteFile(coreg_output_datasets.at(2), cor_output_file + "_slave_I");
                 GeoTiffWriteFile(coreg_output_datasets.at(3), cor_output_file + "_slave_Q");
+                if (apply_etad) {
+                    auto* etad_dataset = coreg_output_datasets.at(4);
+                    auto* etad_band = etad_dataset->GetRasterBand(1);
+                    etad_band->SetDescription("etad_ifg");
+                    CHECK_GDAL_ERROR(etad_band->SetUnitType("radian"));
+                    CHECK_GDAL_ERROR(etad_band->SetNoDataValue(std::numeric_limits<float>::quiet_NaN()));
+                    AddMetadataTo(etad_dataset, metadata_);
+                    const auto& reference_split = reference_splits.at(reference_index);
+                    const auto& secondary_split = secondary_splits.at(secondary_index);
+                    std::string reference_bursts = std::to_string(reference_split->GetFirstBurstIndex());
+                    if (reference_split->GetLastBurstIndex() != reference_split->GetFirstBurstIndex()) {
+                        reference_bursts += "-" + std::to_string(reference_split->GetLastBurstIndex());
+                    }
+                    std::string secondary_bursts = std::to_string(secondary_split->GetFirstBurstIndex());
+                    if (secondary_split->GetLastBurstIndex() != secondary_split->GetFirstBurstIndex()) {
+                        secondary_bursts += "-" + std::to_string(secondary_split->GetLastBurstIndex());
+                    }
+                    const std::string etad_output_file =
+                        output_folder + result_stem + "_" + swath + "_" + polarisation_upper + "_ref_b" +
+                        reference_bursts + "_sec_b" + secondary_bursts + "_Orb_etad_Stack_ifg.tif";
+                    GeoTiffWriteFile(etad_dataset, etad_output_file);
+                    LOGI << "ETAD interferometric phase output @ " << etad_output_file;
+                }
             }
         }
 
@@ -232,7 +299,8 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
                                                     coh_window,
                                                     static_cast<int>(params_.orbit_degree),
                                                     meta_master,
-                                                    meta_slave};
+                                                    meta_slave,
+                                                    apply_etad};
 
             alus::coherence_cuda::CUDAAlgorithmRunner cuda_algo_runner{&coh_data_reader, &coh_data_writer,
                                                                        &tiles_generator, &coherence};
@@ -255,6 +323,7 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
 
             if (params_.wif) {
                 LOGI << "Coherence output @ " << coh_output_file;
+                AddMetadataTo(coh_dataset, metadata_);
                 GeoTiffWriteFile(coh_dataset, coh_output_file);
             }
         }
@@ -316,8 +385,8 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
     std::string output_file = output_folder + result_stem + "_";
     if (deb_products.size() == 1) {
         tc_input = deb_products.front();
-        output_file +=
-            "Orb_Stack_" + s1tbx::Sentinel1Utils(deb_products.front()).GetSubSwathNames().front() + "_coh_deb";
+        output_file += (apply_etad ? "Orb_etad_Stack_" : "Orb_Stack_") +
+                       s1tbx::Sentinel1Utils(deb_products.front()).GetSubSwathNames().front() + "_coh_deb";
     } else {
         std::string sw_names{};
         for (size_t i{}; i < deb_products.size(); i++) {
@@ -327,7 +396,7 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
                 sw_names += "_";
             }
         }
-        output_file += "Orb_Stack_coh_deb_mrg_" + sw_names;
+        output_file += (apply_etad ? "Orb_etad_Stack_coh_deb_mrg_" : "Orb_Stack_coh_deb_mrg_") + sw_names;
         // Merge
         auto merge_start = std::chrono::steady_clock::now();
         std::vector<std::string> merge_polarisations(deb_products.size(), polarisation_upper);
