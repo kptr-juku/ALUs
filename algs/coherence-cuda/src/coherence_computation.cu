@@ -85,6 +85,21 @@ struct SlaveMultiplyComplexReferencePhase {
     }
 };
 
+struct SecondaryEtadCorrection {
+    __host__ __device__ thrust::tuple<float, float> operator()(const thrust::tuple<float, float, float>& t) {
+        const float phase = thrust::get<0>(t);
+        const float secondary_real = thrust::get<1>(t);
+        const float secondary_imaginary = thrust::get<2>(t);
+        if (!isfinite(phase)) {
+            return thrust::make_tuple(0.0F, 0.0F);
+        }
+        // Complex multiplication results in phase rotation. ETAD phase is represented by Euler's identity components.
+        const auto out = thrust::complex(secondary_real, secondary_imaginary) *
+                         thrust::complex(cosf(phase), sinf(phase));
+        return thrust::make_tuple(out.real(), out.imag());
+    }
+};
+
 struct FilteredCoherenceProduct {
     __host__ __device__ thrust::tuple<float> operator()(const thrust::tuple<float, float, float, float, bool>& t) {
         float master_real = thrust::get<0>(t);
@@ -161,7 +176,8 @@ __global__ void SimpleCoherence2DSumKernelSumSurroundings(float* d_tile_in_data_
  * input tile contains overlap data but no padding
  * output tile is smaller since overlaps get removed
  */
-__global__ void BoolImageForCoherenceProductFiltering(float* d_tile_in_data_ptr, bool* d_tile_out_data_ptr,
+__global__ void BoolImageForCoherenceProductFiltering(float* d_tile_in_data_ptr, const float* d_etad_ifg,
+                                                       bool* d_tile_out_data_ptr,
                                                       int input_tile_width, int input_tile_height,
                                                       int output_tile_width, int output_tile_height, int coh_window_rg,
                                                       int coh_window_az, int x_min_pad, int x_max_pad, int y_min_pad,
@@ -179,7 +195,9 @@ __global__ void BoolImageForCoherenceProductFiltering(float* d_tile_in_data_ptr,
 
     if (row_idx < output_tile_height && column_idx < output_tile_width) {
         auto data_in = d_tile_in_data_ptr[row_idx_input_tile * input_tile_width + column_idx_input_tile];
-        d_tile_out_data_ptr[row_idx * output_tile_width + column_idx] =
+        const bool etad_valid = d_etad_ifg == nullptr || isfinite(d_etad_ifg[row_idx_input_tile * input_tile_width +
+                                                                            column_idx_input_tile]);
+        d_tile_out_data_ptr[row_idx * output_tile_width + column_idx] = etad_valid &&
             std::fabs(data_in - slave_real_no_data) >= std::numeric_limits<float>::epsilon();
     }
 }
@@ -211,7 +229,7 @@ void CoherenceComputation::LaunchCoherencePreTileCalc(std::vector<int>& x_pows, 
 }
 
 void CoherenceComputation::LaunchCoherence(const CohTile& tile, ThreadContext& ctx, const CohWindow& coh_window,
-                                           const BandParams& band_params) {
+                                           const BandParams& band_params, bool apply_etad) {
     const int input_tile_width = tile.GetTileIn().GetXSize();
     const int input_tile_height = tile.GetTileIn().GetYSize();
     const int output_tile_width = tile.GetTileOut().GetXSize();
@@ -231,10 +249,21 @@ void CoherenceComputation::LaunchCoherence(const CohTile& tile, ThreadContext& c
     ctx.d_tile_out_slave_real_bool.Resize(output_tile_width * output_tile_height);
 
     BoolImageForCoherenceProductFiltering<<<num_blocks, threads_per_block, 0, ctx.stream>>>(
-        ctx.d_band_slave_real.Get(), ctx.d_tile_out_slave_real_bool.Get(), input_tile_width, input_tile_height,
-        output_tile_width, output_tile_height, coh_window.rg, coh_window.az, tile.GetXMinPad(), tile.GetXMaxPad(),
-        tile.GetYMinPad(), tile.GetYMaxPad());
+        ctx.d_band_slave_real.Get(), apply_etad ? ctx.d_etad_ifg.Get() : nullptr,
+        ctx.d_tile_out_slave_real_bool.Get(), input_tile_width, input_tile_height, output_tile_width, output_tile_height,
+        coh_window.rg, coh_window.az, tile.GetXMinPad(), tile.GetXMaxPad(), tile.GetYMinPad(), tile.GetYMaxPad());
     CHECK_CUDA_ERRORS(cudaPeekAtLastError());
+
+    if (apply_etad) {
+        thrust::transform(
+            thrust_stream,
+            thrust::make_zip_iterator(
+                thrust::make_tuple(ctx.d_etad_ifg.begin(), ctx.d_band_slave_real.begin(), ctx.d_band_slave_imag.begin())),
+            thrust::make_zip_iterator(
+                thrust::make_tuple(ctx.d_etad_ifg.end(), ctx.d_band_slave_real.end(), ctx.d_band_slave_imag.end())),
+            thrust::make_zip_iterator(thrust::make_tuple(ctx.d_band_slave_real.begin(), ctx.d_band_slave_imag.begin())),
+            SecondaryEtadCorrection());
+    }
 
     size_t size_to_last = input_tile_height * input_tile_width;
     // ComputeFlatEarthPhase
