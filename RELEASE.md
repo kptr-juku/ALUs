@@ -1,3 +1,50 @@
+# Release 1.8.0
+
+## Breaking changes
+* GDAL 3.1 or newer is now required for the multidimensional API used by the ETAD reader. ETAD processing also
+  requires GDAL NetCDF support.
+* Removed the Jupyter notebook interface and obsolete CI/container helpers. Use
+  [ALUs-platform](https://github.com/kptr-juku/ALUs-platform) for environment setup and container builds.
+
+## Known Caveats
+* ETAD-enabled coherence is experimental and available only for pairwise `alus-coh`, not `alus-coht`. Both
+  `--etad_ref` and `--etad_sec` must be supplied with matching acquisition and burst coverage.
+* ETAD support applies phase corrections, not geometric resampling or azimuth corrections. Nonzero timing-calibration
+  channel offsets are not supported. SNAP's classical coherence branch does not apply the ETAD phase correction and
+  is therefore not a direct numerical baseline for ALUs ETAD coherence. See [ETAD details](docs/etad.md).
+* The caveats listed for 1.6.0 have not been requalified for this release.
+
+## Major Features and Improvements
+* Experimental ETAD phase correction in the GPU coherence pipeline, with native XML/grouped NetCDF reading from
+  zipped or unpacked SAFE products, double-precision correction grids, acquisition/burst association, output provenance
+  and an intermediate `etad_ifg` layer when `--wif` is enabled -
+  [implementation](https://github.com/kptr-juku/ALUs/commit/6d48c480)
+* Burst-product processing through a pseudo split operator, with subsequent TOPSAR geometry and deburst fixes -
+  [implementation](https://github.com/kptr-juku/ALUs/commit/b9378a65)
+* GeoJSON AOI input alongside WKT and shapefiles, with corrected AOI geometry handling for different orbit directions -
+  [implementation](https://github.com/kptr-juku/ALUs/commit/3c21a4e2)
+* HH polarisation support for `alus-cal` - [implementation](https://github.com/kptr-juku/ALUs/commit/e70af351)
+* `alus-coht` filtering by `--relative-orbit` and `--orbit-direction`, and mission selection covering S1A/S1B/S1C/S1D -
+  [implementation](https://github.com/kptr-juku/ALUs/commit/f7ab8c43)
+* Automated release packages for both Ubuntu 22.04 and 24.04, with platform-specific artifact names -
+  [implementation](https://github.com/kptr-juku/ALUs/commit/79dbcfc4)
+
+## Bug Fixes and Other Changes
+* Fixed output geocoordinates and raster dimensions in TOPSAR split/deburst processing -
+  [split fixes](https://github.com/kptr-juku/ALUs/commit/d2c00788),
+  [deburst fixes](https://github.com/kptr-juku/ALUs/commit/531fc0cc)
+* Fixed coherence product-name handling for `manifest.safe` inputs and paths with trailing slashes -
+  [implementation](https://github.com/kptr-juku/ALUs/commit/e693c8ae)
+* Fixed calibration `--sw` argument handling and avoided incorrect `productInfo.json` detection on S3FS-mounted SAFE
+  products - [calibration fix](https://github.com/kptr-juku/ALUs/commit/e70af351),
+  [reader fix](https://github.com/kptr-juku/ALUs/commit/b618856d)
+* Added AOI and coherence-timeline E2E workflows, ETAD metadata/preparation unit tests, and Saint-Etienne and Storm Daniel
+  ETAD comparison workflows. See [ETAD validation results](docs/etad.md).
+* Updated dependency, build and processing documentation around ALUs-platform.
+
+## Thanks to our Contributors
+Guido Lemoine Guido.LEMOINE@ec.europa.eu
+
 # Release 1.7.0
 
 ## Breaking changes
