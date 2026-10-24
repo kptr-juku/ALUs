@@ -21,7 +21,7 @@ namespace alus::calibrationroutine {
 
 constexpr std::string_view ALG_NAME{"Calibration"};
 constexpr std::array<std::string_view, 3> SUBSWATHS{"IW1", "IW2", "IW3"};
-constexpr std::array<std::string_view, 2> POLARISATIONS{"VV", "VH"};
+constexpr std::array<std::string_view, 3> POLARISATIONS{"VV", "VH", "HH"};
 constexpr size_t INVALID_BURST_INDEX{0};
 constexpr std::string_view CALIBRATION_TYPE_BETA{"beta"};
 constexpr std::string_view CALIBRATION_TYPE_SIGMA{"sigma"};

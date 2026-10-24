@@ -40,6 +40,8 @@ alus::coherenceestimationroutine::Execute::Parameters AssembleParameters(
 
     params.input_reference = args.GetInputReference();
     params.input_secondary = args.GetInputSecondary();
+    params.etad_reference = args.GetEtadReference();
+    params.etad_secondary = args.GetEtadSecondary();
     params.output = args.GetOutput();
     params.subswath = args.GetSubswath();
     params.polarisation = args.GetPolarisation();
@@ -67,12 +69,16 @@ alus::coherenceestimationroutine::Execute::Parameters AssembleParameters(
     params.orbit_degree = args.GetOrbitDegree();
     params.rg_window = args.GetRangeWindow();
     params.az_window = args.GetAzimuthWindow();
+    params.pixel_dimension_m = args.GetPixelDimensionMeters();
+    params.pixel_dimension_deg = args.GetPixelDimensionDegrees();
     params.wif = args.DoSaveIntermediateResults();
 
     params.timeline_start = args.GetTimelineStart();
     params.timeline_end = args.GetTimelineEnd();
     params.timeline_input = args.GetTimelineInput();
     params.timeline_mission = args.GetTimelineMission();
+    params.timeline_relative_orbit = args.GetRelativeOrbit();
+    params.timeline_orbit_direction = args.GetOrbitDirection();
 
     return params;
 }

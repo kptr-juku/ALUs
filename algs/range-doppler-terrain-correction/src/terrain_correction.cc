@@ -211,7 +211,8 @@ TerrainCorrection::TerrainCorrection(GDALDataset* input_dataset, const RangeDopp
                                      const PointerHolder* dem_tiles, size_t dem_tiles_length,
                                      const dem::Property* dem_property, const dem::Type dem_type,
                                      const std::vector<dem::Property>& dem_property_value, int selected_band_id,
-                                     bool use_average_scene_height)
+                                     bool use_average_scene_height, std::optional<double> pixel_dimension_m,
+                                     std::optional<double> pixel_dimension_deg)
     : input_ds_{input_dataset},
       metadata_{metadata},
       d_dem_tiles_(dem_tiles),
@@ -222,7 +223,9 @@ TerrainCorrection::TerrainCorrection(GDALDataset* input_dataset, const RangeDopp
       selected_band_id_(selected_band_id),
       lat_tie_point_grid_{lat_tie_point_grid},
       lon_tie_point_grid_{lon_tie_point_grid},
-      use_average_scene_height_{use_average_scene_height}{}
+      use_average_scene_height_{use_average_scene_height},
+      pixel_dimension_m_{pixel_dimension_m},
+      pixel_dimension_deg_{pixel_dimension_deg} {}
 
 void TerrainCorrection::ExecuteTerrainCorrection(std::string_view output_file_name, size_t tile_width,
                                                  size_t tile_height, bool output_db_values) {
@@ -403,9 +406,9 @@ std::vector<TcTileCoordinates> TerrainCorrection::CalculateTiles(const snapengin
 
 snapengine::old::Product TerrainCorrection::CreateTargetProduct(
     const snapengine::geocoding::Geocoding* source_geocoding, const std::string_view output_filename) {
-    double pixel_spacing_in_meter = metadata_.azimuth_spacing;
-    double pixel_spacing_in_degree =
-        pixel_spacing_in_meter / snapengine::eo::constants::SEMI_MAJOR_AXIS * snapengine::eo::constants::RTOD;
+    const double pixel_spacing_in_meter = pixel_dimension_m_.value_or(metadata_.azimuth_spacing);
+    const double pixel_spacing_in_degree = pixel_dimension_deg_.value_or(
+        pixel_spacing_in_meter / snapengine::eo::constants::SEMI_MAJOR_AXIS * snapengine::eo::constants::RTOD);
 
     OGRSpatialReference target_crs;
     // EPSG:4326 is a WGS84 code
@@ -437,7 +440,9 @@ snapengine::old::Product TerrainCorrection::CreateTargetProduct(
     std::string x_tile_sz = FindOptimalTileSize(a);
     std::string y_tile_sz = FindOptimalTileSize(b);
 
-    LOGD << "TC output dimensions = (" << a << ", " << b << ") block size = (" << x_tile_sz << ", " << y_tile_sz << ")";
+    LOGI << "TC output dimensions = (" << a << ", " << b << "), pixel dimension = " << pixel_spacing_in_degree
+         << " degrees";
+    LOGD << "TC output block size = (" << x_tile_sz << ", " << y_tile_sz << ")";
 
     // TODO Optimization, should tiff tile size determine calculation tile size or vice versa?
     char** output_driver_options = nullptr;

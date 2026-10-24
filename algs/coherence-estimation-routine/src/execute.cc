@@ -14,8 +14,13 @@
 
 #include "execute.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <future>
+#include <iterator>
+#include <limits>
+#include <memory>
+#include <optional>
 #include <string>
 
 #include <boost/algorithm/string/join.hpp>
@@ -30,6 +35,7 @@
 #include "coregistration_controller.h"
 #include "cuda_algorithm_runner.h"
 #include "dem_assistant.h"
+#include "etad_preparation.h"
 #include "gdal_image_reader.h"
 #include "gdal_image_writer.h"
 #include "gdal_management.h"
@@ -39,10 +45,13 @@
 #include "metadata_record.h"
 #include "product.h"
 #include "s1tbx-io/sentinel1/sentinel1_product_reader_plug_in.h"
+#include "sentinel1_etad_product.h"
+#include "slc_metadata.h"
 #include "snap-core/core/util/alus_utils.h"
 #include "snap-core/core/util/system_utils.h"
 #include "terrain_correction.h"
 #include "terrain_correction_metadata.h"
+#include "timeline_dataset_metadata.h"
 #include "topsar_deburst_op.h"
 #include "topsar_merge.h"
 #include "topsar_split.h"
@@ -56,6 +65,7 @@ constexpr size_t FULL_SUBSWATH_BURST_INDEX_END{9999};
 struct TimelineDataset {
     std::filesystem::path path;
     boost::posix_time::ptime date_time;
+    std::string orbit_source;
     std::vector<std::string> swath_selection;
     std::vector<std::shared_ptr<alus::topsarsplit::TopsarSplit>> splits;
 };
@@ -92,6 +102,7 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
     }
 
     std::vector<std::shared_ptr<snapengine::Product>> deb_products;
+    std::vector<std::string> processed_swaths;
     const auto* d_elevation_tiles = dem_assistant->GetElevationManager()->GetBuffers();
     const size_t elevation_tiles_length = dem_assistant->GetElevationManager()->GetTileCount();
     const auto* d_elevation_tiles_prop = dem_assistant->GetElevationManager()->GetProperties();
@@ -99,15 +110,33 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
     const auto elevation_tile_type = dem_assistant->GetType();
     const auto* d_egm96_values = dem_assistant->GetEgm96Manager()->GetDeviceValues();
 
-    size_t secondary_index = 0;
+    const bool apply_etad = !params_.etad_reference.empty();
+    std::optional<s1sar::etad::Sentinel1EtadProduct> reference_etad;
+    std::optional<s1sar::etad::Sentinel1EtadProduct> secondary_etad;
+    if (apply_etad) {
+        reference_etad.emplace(s1sar::etad::Sentinel1EtadProduct::Open(params_.etad_reference));
+        secondary_etad.emplace(s1sar::etad::Sentinel1EtadProduct::Open(params_.etad_secondary));
+        metadata_.AddWhenMissing(common::metadata::sentinel1::ETAD_CORRECTION_APPLIED, "1");
+        metadata_.AddWhenMissing(common::metadata::sentinel1::ETAD_GEOMETRY_APPLIED, "0");
+        metadata_.AddWhenMissing(common::metadata::sentinel1::ETAD_PHASE_APPLIED, "1");
+        metadata_.AddWhenMissing(common::metadata::sentinel1::ETAD_AZIMUTH_APPLIED, "0");
+        metadata_.AddWhenMissing(common::metadata::sentinel1::ETAD_CORRECTION_FLAG, "1");
+        metadata_.AddWhenMissing(common::metadata::sentinel1::ETAD_PRODUCT_REFERENCE, reference_etad->GetName());
+        metadata_.AddWhenMissing(common::metadata::sentinel1::ETAD_PRODUCT_SECONDARY, secondary_etad->GetName());
+    }
+
     for (size_t reference_index = 0; reference_index < reference_splits.size(); reference_index++) {
         const auto& reference_swath = reference_swath_selection.at(reference_index);
-        const auto& secondary_swath = secondary_swath_selection.at(secondary_index);
-        if (reference_swath != secondary_swath) {
-            LOGW << "Skipping master swath, no coverage in slave" << reference_swath;
+        const auto secondary_swath =
+            std::find(secondary_swath_selection.begin(), secondary_swath_selection.end(), reference_swath);
+        if (secondary_swath == secondary_swath_selection.end()) {
+            LOGW << "Skipping reference swath, no coverage in secondary " << reference_swath;
             continue;
         }
+        const auto secondary_index =
+            static_cast<size_t>(std::distance(secondary_swath_selection.begin(), secondary_swath));
         const std::string& swath = reference_swath;
+        processed_swaths.push_back(swath);
         std::shared_ptr<snapengine::Product> main_product{};
         std::shared_ptr<snapengine::Product> secondary_product{};
 
@@ -115,16 +144,38 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
         if (reference_swath_selection.size() > 1U) {
             cor_output_file += swath + "_";
         }
-        cor_output_file += "Orb_Stack";
+        cor_output_file += apply_etad ? "Orb_etad_Stack" : "Orb_Stack";
 
         std::vector<GDALDataset*> coreg_output_datasets;
         {
             const auto coreg_start = std::chrono::steady_clock::now();
 
             coregistration::Coregistration coreg;
+            std::shared_ptr<const s1sar::etad::PreparedPair> etad_pair;
+            if (apply_etad) {
+                const auto& reference_split = reference_splits.at(reference_index);
+                const auto& secondary_split = secondary_splits.at(secondary_index);
+                const auto reference_slc =
+                    s1sar::slc::ReadMetadata(params_.input_reference, swath, params_.polarisation);
+                const auto secondary_slc =
+                    s1sar::slc::ReadMetadata(params_.input_secondary, swath, params_.polarisation);
+                const s1sar::etad::BurstSelection reference_selection{
+                    reference_split->GetFirstBurstIndex() - topsarsplit::TopsarSplit::BURST_INDEX_OFFSET,
+                    reference_split->GetLastBurstIndex() - reference_split->GetFirstBurstIndex() + 1,
+                };
+                const s1sar::etad::BurstSelection secondary_selection{
+                    secondary_split->GetFirstBurstIndex() - topsarsplit::TopsarSplit::BURST_INDEX_OFFSET,
+                    secondary_split->GetLastBurstIndex() - secondary_split->GetFirstBurstIndex() + 1,
+                };
+                auto prepared_pair = std::make_shared<s1sar::etad::PreparedPair>();
+                prepared_pair->reference = std::make_shared<s1sar::etad::PreparedAcquisition>(
+                    s1sar::etad::PrepareInSar(reference_slc, reference_selection, reference_etad.value()));
+                prepared_pair->secondary = std::make_shared<s1sar::etad::PreparedAcquisition>(
+                    s1sar::etad::PrepareInSar(secondary_slc, secondary_selection, secondary_etad.value()));
+                etad_pair = std::move(prepared_pair);
+            }
 
-            coreg.Initialize(reference_splits.at(reference_index), secondary_splits.at(secondary_index));
-            secondary_index++;
+            coreg.Initialize(reference_splits.at(reference_index), secondary_splits.at(secondary_index), etad_pair);
 
             coreg.DoWork(d_egm96_values, {d_elevation_tiles, elevation_tiles_length},
                          params_.mask_out_area_without_elevation, d_elevation_tiles_prop, elevation_tiles_host_prop,
@@ -147,6 +198,29 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
                 GeoTiffWriteFile(coreg_output_datasets.at(1), cor_output_file + "_mst_Q");
                 GeoTiffWriteFile(coreg_output_datasets.at(2), cor_output_file + "_slave_I");
                 GeoTiffWriteFile(coreg_output_datasets.at(3), cor_output_file + "_slave_Q");
+                if (apply_etad) {
+                    auto* etad_dataset = coreg_output_datasets.at(4);
+                    auto* etad_band = etad_dataset->GetRasterBand(1);
+                    etad_band->SetDescription("etad_ifg");
+                    CHECK_GDAL_ERROR(etad_band->SetUnitType("radian"));
+                    CHECK_GDAL_ERROR(etad_band->SetNoDataValue(std::numeric_limits<float>::quiet_NaN()));
+                    AddMetadataTo(etad_dataset, metadata_);
+                    const auto& reference_split = reference_splits.at(reference_index);
+                    const auto& secondary_split = secondary_splits.at(secondary_index);
+                    std::string reference_bursts = std::to_string(reference_split->GetFirstBurstIndex());
+                    if (reference_split->GetLastBurstIndex() != reference_split->GetFirstBurstIndex()) {
+                        reference_bursts += "-" + std::to_string(reference_split->GetLastBurstIndex());
+                    }
+                    std::string secondary_bursts = std::to_string(secondary_split->GetFirstBurstIndex());
+                    if (secondary_split->GetLastBurstIndex() != secondary_split->GetFirstBurstIndex()) {
+                        secondary_bursts += "-" + std::to_string(secondary_split->GetLastBurstIndex());
+                    }
+                    const std::string etad_output_file =
+                        output_folder + result_stem + "_" + swath + "_" + polarisation_upper + "_ref_b" +
+                        reference_bursts + "_sec_b" + secondary_bursts + "_Orb_etad_Stack_ifg.tif";
+                    GeoTiffWriteFile(etad_dataset, etad_output_file);
+                    LOGI << "ETAD interferometric phase output @ " << etad_output_file;
+                }
             }
         }
 
@@ -225,7 +299,8 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
                                                     coh_window,
                                                     static_cast<int>(params_.orbit_degree),
                                                     meta_master,
-                                                    meta_slave};
+                                                    meta_slave,
+                                                    apply_etad};
 
             alus::coherence_cuda::CUDAAlgorithmRunner cuda_algo_runner{&coh_data_reader, &coh_data_writer,
                                                                        &tiles_generator, &coherence};
@@ -248,6 +323,7 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
 
             if (params_.wif) {
                 LOGI << "Coherence output @ " << coh_output_file;
+                AddMetadataTo(coh_dataset, metadata_);
                 GeoTiffWriteFile(coh_dataset, coh_output_file);
             }
         }
@@ -298,13 +374,19 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
         deb_products.push_back(debursted_product);
     }
 
+    if (deb_products.empty()) {
+        THROW_ALGORITHM_EXCEPTION(ALG_NAME, "Reference and secondary products have no common subswaths.");
+    }
+    metadata_.AddWhenMissing(common::metadata::sentinel1::AREA_SELECTION,
+                             params_.aoi.empty() ? boost::algorithm::join(processed_swaths, " ") : params_.aoi);
+
     std::shared_ptr<snapengine::Product> tc_input;
 
     std::string output_file = output_folder + result_stem + "_";
     if (deb_products.size() == 1) {
         tc_input = deb_products.front();
-        output_file +=
-            "Orb_Stack_" + s1tbx::Sentinel1Utils(deb_products.front()).GetSubSwathNames().front() + "_coh_deb";
+        output_file += (apply_etad ? "Orb_etad_Stack_" : "Orb_Stack_") +
+                       s1tbx::Sentinel1Utils(deb_products.front()).GetSubSwathNames().front() + "_coh_deb";
     } else {
         std::string sw_names{};
         for (size_t i{}; i < deb_products.size(); i++) {
@@ -314,7 +396,7 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
                 sw_names += "_";
             }
         }
-        output_file += "Orb_Stack_coh_deb_mrg_" + sw_names;
+        output_file += (apply_etad ? "Orb_etad_Stack_coh_deb_mrg_" : "Orb_Stack_coh_deb_mrg_") + sw_names;
         // Merge
         auto merge_start = std::chrono::steady_clock::now();
         std::vector<std::string> merge_polarisations(deb_products.size(), polarisation_upper);
@@ -374,7 +456,8 @@ void Execute::CalcSingleCoherence(const std::vector<std::shared_ptr<alus::topsar
     terraincorrection::TerrainCorrection tc(tc_in_dataset, metadata.GetMetadata(), metadata.GetLatTiePointGrid(),
                                             metadata.GetLonTiePointGrid(), d_elevation_tiles, elevation_tiles_length,
                                             d_elevation_tiles_prop, elevation_tile_type, elevation_tiles_host_prop,
-                                            selected_band);
+                                            selected_band, false, params_.pixel_dimension_m,
+                                            params_.pixel_dimension_deg);
     std::string tc_output_file = predefined_end_result_name.empty()
                                      ? boost::filesystem::path(output_file).replace_extension("").string() + "_tc.tif"
                                      : predefined_end_result_name;
@@ -425,7 +508,7 @@ void Execute::RunSinglePair(alus::cuda::CudaInit& cuda_init, size_t) {
     cuda_device.Set();
     LOGI << "Using '" << cuda_device.GetName() << "' device nr " << cuda_device.GetDeviceNr() << " for calculations";
 
-    const std::string reference_name = std::filesystem::path(params_.input_reference).filename().stem().string();
+    const std::string reference_name = reference_splits.front()->GetTargetProduct()->GetName();
     CalcSingleCoherence(reference_splits, secondary_splits, reference_swath_selection, secondary_swath_selection,
                         reference_name, dem_assistant.get());
     dem_assistant->GetElevationManager()->ReleaseFromDevice();
@@ -464,8 +547,8 @@ void Execute::RunTimeline(alus::cuda::CudaInit& cuda_init, size_t) {
         const auto& type = split_filename.at(2);
         const auto& start_time_str = split_filename.at(4);
 
-        if ((mission != "S1A" && mission != "S1B") || type != "SLC") {
-            LOGD << filename << " filtered out - not SLC and/or S1A/S1B";
+        if ((mission != "S1A" && mission != "S1B" && mission != "S1C" && mission != "S1D") || type != "SLC") {
+            LOGD << filename << " filtered out - not SLC and/or S1A/S1B/S1C/S1D";
             continue;
         }
 
@@ -482,9 +565,23 @@ void Execute::RunTimeline(alus::cuda::CudaInit& cuda_init, size_t) {
             continue;
         }
 
+        if (params_.timeline_relative_orbit.has_value() || params_.timeline_orbit_direction.has_value()) {
+            const auto timeline_metadata = GetTimelineDatasetMetadata(path);
+            if (params_.timeline_relative_orbit.has_value() &&
+                timeline_metadata.relative_orbit != params_.timeline_relative_orbit) {
+                LOGD << filename << " filtered out by relative orbit";
+                continue;
+            }
+            if (params_.timeline_orbit_direction.has_value() &&
+                timeline_metadata.orbit_direction != params_.timeline_orbit_direction) {
+                LOGD << filename << " filtered out by orbit direction";
+                continue;
+            }
+        }
+
         LOGI << "Dataset " << filename << " selected for timeline";
 
-        datasets.push_back({path, scene_time, {}, {}});
+        datasets.push_back({path, scene_time, {}, {}, {}});
     }
 
     if (datasets.size() < 2U) {
@@ -499,11 +596,18 @@ void Execute::RunTimeline(alus::cuda::CudaInit& cuda_init, size_t) {
     size_t load_cnt = 0;
     size_t calc_index = 0;
     while (calc_index < total_datasets - 1) {
+        metadata_ = common::metadata::Container();
+        if (load_cnt != 0U) {
+            metadata_.AddOrAppend(common::metadata::sentinel1::ORBIT_SOURCE,
+                                  datasets.at(calc_index).orbit_source);
+        }
+
         while (load_cnt < 2 && ((calc_index + load_cnt) < total_datasets)) {
             auto& load_ds = datasets.at(calc_index + load_cnt);
             LOGD << "Loading " << load_ds.path.filename();
-            SplitApplyOrbit(load_ds.path.string(), FULL_SUBSWATH_BURST_INDEX_START, FULL_SUBSWATH_BURST_INDEX_END,
-                            load_ds.splits, load_ds.swath_selection);
+            load_ds.orbit_source =
+                SplitApplyOrbit(load_ds.path.string(), FULL_SUBSWATH_BURST_INDEX_START, FULL_SUBSWATH_BURST_INDEX_END,
+                                load_ds.splits, load_ds.swath_selection);
             load_cnt++;
         }
 
@@ -531,18 +635,18 @@ void Execute::RunTimeline(alus::cuda::CudaInit& cuda_init, size_t) {
         LOGD << "Freeing " << free.path.filename();
         free.splits.clear();
         load_cnt--;
-        metadata_ = common::metadata::Container();
     }
 
     dem_assistant->GetElevationManager()->ReleaseFromDevice();
 }
 
-void Execute::SplitApplyOrbit(const std::string& path, size_t burst_index_start, size_t burst_index_end,
-                              std::vector<std::shared_ptr<alus::topsarsplit::TopsarSplit>>& splits,
-                              std::vector<std::string>& swath_selection) {
+std::string Execute::SplitApplyOrbit(const std::string& path, size_t burst_index_start, size_t burst_index_end,
+                                     std::vector<std::shared_ptr<alus::topsarsplit::TopsarSplit>>& splits,
+                                     std::vector<std::string>& swath_selection) {
     auto reader_plug_in = std::make_shared<alus::s1tbx::Sentinel1ProductReaderPlugIn>();
     auto reader = reader_plug_in->CreateReaderInstance();
     auto product = reader->ReadProductNodes(boost::filesystem::canonical(path), nullptr);
+    const auto available_swaths = s1tbx::Sentinel1Utils::GetSubSwathNames(product);
 
     if (!params_.subswath.empty()) {
         swath_selection = {params_.subswath};
@@ -550,7 +654,6 @@ void Execute::SplitApplyOrbit(const std::string& path, size_t burst_index_start,
         if (!params_.aoi.empty()) {
             split = std::make_unique<topsarsplit::TopsarSplit>(product, params_.subswath, params_.polarisation,
                                                                params_.aoi);
-            metadata_.AddWhenMissing(common::metadata::sentinel1::AREA_SELECTION, params_.aoi);
         } else {
             if (burst_index_start == burst_index_end && burst_index_start < FULL_SUBSWATH_BURST_INDEX_START) {
                 burst_index_start = FULL_SUBSWATH_BURST_INDEX_START;
@@ -558,14 +661,12 @@ void Execute::SplitApplyOrbit(const std::string& path, size_t burst_index_start,
             }
             split = std::make_unique<topsarsplit::TopsarSplit>(product, params_.subswath, params_.polarisation,
                                                                burst_index_start, burst_index_end);
-            metadata_.AddWhenMissing(common::metadata::sentinel1::AREA_SELECTION, params_.subswath);
         }
         split->Initialize();
         splits.push_back(std::move(split));
     } else if (params_.aoi.empty()) {
-        swath_selection = {"IW1", "IW2", "IW3"};
-        metadata_.AddWhenMissing(common::metadata::sentinel1::AREA_SELECTION, "IW1 IW2 IW3");
-        for (std::string_view swath : swath_selection) {
+        swath_selection = available_swaths;
+        for (const auto& swath : swath_selection) {
             splits.push_back(std::make_unique<topsarsplit::TopsarSplit>(product, swath, params_.polarisation));
             splits.back()->Initialize();
         }
@@ -573,8 +674,7 @@ void Execute::SplitApplyOrbit(const std::string& path, size_t burst_index_start,
         // search for valid swaths with AOI
         topsarsplit::Aoi aoi_poly;
         boost::geometry::read_wkt(params_.aoi, aoi_poly);
-        metadata_.AddWhenMissing(common::metadata::sentinel1::AREA_SELECTION, params_.aoi);
-        for (std::string_view swath : {"IW1", "IW2", "IW3"}) {
+        for (const auto& swath : available_swaths) {
             auto swath_split = std::make_unique<topsarsplit::TopsarSplit>(product, swath, params_.polarisation);
             swath_split->Initialize();
 
@@ -585,7 +685,7 @@ void Execute::SplitApplyOrbit(const std::string& path, size_t burst_index_start,
                 splits.push_back(
                     std::make_unique<topsarsplit::TopsarSplit>(product, swath, params_.polarisation, params_.aoi));
                 splits.back()->Initialize();
-                swath_selection = {std::string{swath}};
+                swath_selection = {swath};
                 break;
             }
             if (topsarsplit::IsCovered(swath_poly, aoi_poly)) {
@@ -599,25 +699,39 @@ void Execute::SplitApplyOrbit(const std::string& path, size_t burst_index_start,
         LOGI << product->GetName() << " swath selection = " << boost::algorithm::join(swath_selection, " ");
     }
 
-    bool orbit_file_used_recorded{false};
+    if (swath_selection.empty()) {
+        THROW_ALGORITHM_EXCEPTION(ALG_NAME,
+                                  "Specified AOI and/or swath arguments result in no subswaths to be processed.");
+    }
+
+    auto product_path = std::filesystem::path(product->GetFileLocation().string());
+    if (product_path.filename() == "manifest.safe") {
+        LOGV << "Sentinel-1 product location points to '" << product_path.string()
+             << "'; using its parent directory as the SAFE raster root";
+        product_path.remove_filename();
+    }
+
+    std::string orbit_source;
     for (const auto& split : splits) {
-        split->OpenPixelReader(path);
+        split->OpenPixelReader(product_path.string());
         auto orbit_op = std::make_unique<s1tbx::ApplyOrbitFileOp>(split->GetTargetProduct(), true);
         if (params_.orbit_dir.empty() && !snapengine::AlusUtils::IsOrbitFileAssigned()) {
             LOGI << "No orbital information update for " << split->GetTargetProduct()->GetName() << " "
                  << split->GetSubswath();
             orbit_op->InitializeWithoutUpdate();
-            if (!orbit_file_used_recorded) {
-                metadata_.AddOrAppend(common::metadata::sentinel1::ORBIT_SOURCE, "SAFE");
+            if (orbit_source.empty()) {
+                orbit_source = "SAFE";
+                metadata_.AddOrAppend(common::metadata::sentinel1::ORBIT_SOURCE, orbit_source);
             }
         } else {
             orbit_op->Initialize();
-            if (!orbit_file_used_recorded) {
-                metadata_.AddOrAppend(common::metadata::sentinel1::ORBIT_SOURCE, orbit_op->GetFilename());
+            if (orbit_source.empty()) {
+                orbit_source = orbit_op->GetFilename();
+                metadata_.AddOrAppend(common::metadata::sentinel1::ORBIT_SOURCE, orbit_source);
             }
         }
-        orbit_file_used_recorded = true;
     }
+    return orbit_source;
 }
 
 std::string Execute::ConditionAoi(const std::string& aoi) const {

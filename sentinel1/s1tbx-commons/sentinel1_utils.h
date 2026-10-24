@@ -135,6 +135,15 @@ public:
     [[nodiscard]] const std::vector<std::string>& GetSubSwathNames() const;
 
     /**
+     * Get the sub-swath names represented by a product's band metadata or band names.
+     *
+     * @param product Source product.
+     * @return Sorted sub-swath names present in the product.
+     */
+    [[nodiscard]] static std::vector<std::string> GetSubSwathNames(
+        const std::shared_ptr<snapengine::Product>& product);
+
+    /**
      * Get source product polarizations.
      *
      * @return The polarization array.

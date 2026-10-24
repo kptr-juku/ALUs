@@ -15,6 +15,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -40,6 +41,9 @@ public:
         size_t burst_last_index;
         std::string calibration_type;
         bool output_db_values;
+        std::string orbit_path;
+        std::optional<double> pixel_dimension_m;
+        std::optional<double> pixel_dimension_deg;
     };
 
     Execute() = delete;
@@ -58,6 +62,7 @@ private:
     void ValidateSubSwath() const;
     void ValidatePolarisation() const;
     void ValidateParameters() const;
+    void ApplyOrbitFile(const std::shared_ptr<snapengine::Product>& product);
     void Split(std::shared_ptr<snapengine::Product> product, size_t burst_index_start, size_t burst_index_end,
                std::vector<std::shared_ptr<topsarsplit::TopsarSplit>>& splits,
                std::vector<std::string>& swath_selection);

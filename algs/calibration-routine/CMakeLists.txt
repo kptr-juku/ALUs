@@ -18,6 +18,7 @@ target_include_directories(alus-cal
 target_link_libraries(alus-cal
         PUBLIC
         app-util-static
+        apply-orbit-file-op-static
         dem-util-static
         gdal-util-static
         snap-engine-static

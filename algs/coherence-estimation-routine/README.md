@@ -3,6 +3,7 @@
 Coherence estimation routine consists of:  
 
 * 2 x input SLC coregistration(split + apply orbit file + backgeocoding)
+  * Optional ETAD based phase correction layer
 * Coherence estimation
 * Deburst
 * Merge (when multiple subswaths selected)
@@ -44,14 +45,20 @@ Arguments:
                                         Can be unspecified.
   --orbit_sec arg                       Secondary scene's POEORB/RESORB file. 
                                         Can be unspecified.
+  --etad_ref arg                        Reference scene's matching ETAD SAFE
+                                        dataset (zipped or unpacked)
+  --etad_sec arg                        Secondary scene's matching ETAD SAFE
+                                        dataset (zipped or unpacked)
   -o [ --output ] arg                   Output folder or filename
   -p [ --polarisation ] arg             Polarisation for which coherence 
                                         estimation will be performed - VV;VH
   --sw arg                              Reference scene's subswath
-  -a [ --aoi ] arg                      Area Of Interest WKT polygon. Or 
-                                        shapefile (.shp) consisting similar 
-                                        geometry.Overrules first and last burst
-                                        indexes and subswath selections.
+  -a [ --aoi ] arg                      Area Of Interest WKT polygon or
+                                        shapefile/GeoJSON file consisting
+                                        similar geometry. Overrules first and
+                                        last burst indexes. If --sw is omitted,
+                                        intersecting subswaths are selected
+                                        automatically.
   --dem arg                             DEM file(s). SRTM3 and Copernicus DEM 
                                         30m COG are currently supported.
   --no_mask_cor                         Do not mask out areas without elevation
@@ -72,6 +79,12 @@ Arguments:
   --rg_win arg (=15)                    range window size in pixels.
   --az_win arg (=0)                     azimuth window size in pixels, if zero 
                                         derived from range window.
+  --pixel-dim-m arg                     Terrain correction output pixel
+                                        dimension in meters. Mutually exclusive
+                                        with --pixel-dim-deg.
+  --pixel-dim-deg arg                   Terrain correction output pixel
+                                        dimension in degrees. Mutually
+                                        exclusive with --pixel-dim-m.
   --orbit_degree arg (=3)
   -w [ --wif ]                          Write intermediate results (will be 
                                         saved in the same folder as final 
@@ -84,7 +97,7 @@ Arguments:
                                         be used for processing
 
 
-https://github.com/cgi-estonia-space/ALUs
+https://github.com/kptr-juku/ALUs
 
 ```
 
@@ -100,8 +113,12 @@ https://github.com/cgi-estonia-space/ALUs
   -p [ --polarisation ] arg             Polarisation for which coherence 
                                         estimation will be performed - VV;VH
   --sw arg                              Reference scene's subswath
-  -a [ --aoi ] arg                      Area Of Interest WKT polygon, overrules
-                                        first and last burst indexes
+  -a [ --aoi ] arg                      Area Of Interest WKT polygon or
+                                        shapefile/GeoJSON file consisting
+                                        similar geometry. Overrules first and
+                                        last burst indexes. If --sw is omitted,
+                                        intersecting subswaths are selected
+                                        automatically.
   --dem arg                             DEM file(s). Only SRTM3 is currently 
                                         supported.
   --no_mask_cor                         Do not mask out areas without elevation
@@ -122,6 +139,12 @@ https://github.com/cgi-estonia-space/ALUs
   --rg_win arg (=15)                    range window size in pixels.
   --az_win arg (=0)                     azimuth window size in pixels, if zero 
                                         derived from range window.
+  --pixel-dim-m arg                     Terrain correction output pixel
+                                        dimension in meters. Mutually exclusive
+                                        with --pixel-dim-deg.
+  --pixel-dim-deg arg                   Terrain correction output pixel
+                                        dimension in degrees. Mutually
+                                        exclusive with --pixel-dim-m.
   --orbit_degree arg (=3)
   -w [ --wif ]                          Write intermediate results (will be 
                                         saved in the same folder as final 
@@ -134,9 +157,53 @@ https://github.com/cgi-estonia-space/ALUs
                                         be used for processing
 ```
 
+If neither pixel dimension option is supplied, terrain correction derives the output resolution from the source
+product as before. Pixel dimensions must be positive; specifying both forms is an error.
+
+## ETAD phase correction (experimental)
+
+> [!WARNING]
+> ETAD-enabled coherence processing is experimental. SNAP applies the ETAD phase correction in its interferogram path,
+> but its baseline coherence branch reloads the uncorrected complex samples. SNAP ETAD coherence therefore cannot serve
+> as a direct numerical baseline for the ALUs behavior described below.
+
+Pairwise `alus-coh` processing accepts `--etad_ref` and `--etad_sec`. Both arguments must be supplied together and each
+ETAD product must match its SLC acquisition, subswath, polarisation and selected burst coverage. Zipped and unpacked
+ETAD SAFE products are supported. Timeline processing with `alus-coht` does not accept ETAD inputs.
+
+ALUs uses the ETAD products in phase-correction mode; it does not geometrically resample the SLCs or apply the ETAD
+azimuth corrections. Backgeocoding constructs the pair-specific correction in reference geometry:
+
+```text
+etad_ifg = reference_phase - secondary_phase
+    - secondary_gradient * (reference_height - secondary_height)
+```
+
+The secondary complex samples are rotated by `exp(+j * etad_ifg)` before flat-earth correction and coherence-window
+accumulation. The rotation preserves sample power. A phase correction that is constant inside a coherence window does
+not change coherence magnitude; spatial variation inside the window can change the coherent sum. This differs from
+SNAP's classical `InterferogramOp`, whose separate coherence branch does not apply its ETAD phase correction.
+
+ETAD output names contain `_etad`. With `--wif`, ALUs also writes the full-resolution, pre-deburst `etad_ifg` layer in
+radians for inspection and SNAP comparison.
+
+```bash
+alus-coh \
+    -r reference.SAFE -s secondary.SAFE \
+    --etad_ref reference_ETAD.SAFE --etad_sec secondary_ETAD.SAFE \
+    --orbit_ref reference.EOF --orbit_sec secondary.EOF \
+    --sw IW1 -p VV \
+    --b_ref1 1 --b_ref2 2 --b_sec1 1 --b_sec2 2 \
+    --dem Copernicus_DSM_COG_10_N39_00_E022_00_DEM.tif \
+    -o processed/
+```
+
+See [`docs/etad.md`](../../docs/etad.md) for formulas, precision policy, SNAP behavior and validation results.
+
 ## Performance
 
-Please see the latest and always updated comprehensive evaluation in the [Wiki](https://github.com/cgi-estonia-space/ALUs/wiki/Coherence-estimation-evaluation)
+Please see the latest comprehensive evaluation in the
+[Wiki](https://github.com/cgi-estonia-space/ALUs/wiki/Coherence-estimation-evaluation).
 
 **Following contents below might be deprecated**
 

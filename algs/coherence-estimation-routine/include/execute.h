@@ -15,6 +15,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -37,9 +38,13 @@ public:
         std::string timeline_end;
         std::string timeline_input;
         std::string timeline_mission;
+        std::optional<size_t> timeline_relative_orbit;
+        std::optional<std::string> timeline_orbit_direction;
 
         std::string input_reference;
         std::string input_secondary;
+        std::string etad_reference;
+        std::string etad_secondary;
         size_t burst_index_start_reference;
         size_t burst_index_last_reference;
         size_t burst_index_start_secondary;
@@ -53,6 +58,8 @@ public:
         size_t rg_window;
         size_t az_window;
         size_t orbit_degree;
+        std::optional<double> pixel_dimension_m;
+        std::optional<double> pixel_dimension_deg;
         bool wif;
         std::string output;
         bool mask_out_area_without_elevation;
@@ -76,9 +83,9 @@ private:
                              const std::vector<std::string>& secondary_swath_selection,
                              const std::string& reference_name, dem::Assistant* dem_assistant);
 
-    void SplitApplyOrbit(const std::string& path, size_t burst_index_start, size_t burst_index_stop,
-                         std::vector<std::shared_ptr<alus::topsarsplit::TopsarSplit>>& slave_splits,
-                         std::vector<std::string>& swath_selection);
+    std::string SplitApplyOrbit(const std::string& path, size_t burst_index_start, size_t burst_index_stop,
+                                std::vector<std::shared_ptr<alus::topsarsplit::TopsarSplit>>& slave_splits,
+                                std::vector<std::string>& swath_selection);
     std::string ConditionAoi(const std::string& aoi) const;
 
     Parameters params_;

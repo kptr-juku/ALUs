@@ -45,14 +45,23 @@ Arguments:
                              unspecified for whole subswath and GRD
   --bi2 arg                  Last burst index - starting at '1', leave 
                              unspecified for whole subswath and GRD
-  -a [ --aoi ] arg           Area Of Interest WKT polygon. Or shapefile (.shp) 
-                             consisting similar geometry.Overrules first and 
-                             last burst indexes and subswath selections. Not 
-                             effective for GRD.
+  -a [ --aoi ] arg           Area Of Interest WKT polygon or shapefile/GeoJSON
+                             file consisting similar geometry. Overrules first
+                             and last burst indexes. If --sw is omitted,
+                             intersecting subswaths are selected automatically.
+                             Not effective for GRD.
   -t [ --type ] arg          Type of calibration to be performed, one of the 
                              following - sigma;beta;gamma;dn
   --dem arg                  DEM file(s). SRTM3 and Copernicus DEM 30m COG are 
                              currently supported.
+  --orbit arg                POEORB/RESORB file or directory used to find a
+                             matching orbit file. If unspecified, orbital
+                             information is not updated.
+  --pixel-dim-m arg          Terrain correction output pixel dimension in
+                             meters. Mutually exclusive with --pixel-dim-deg.
+  --pixel-dim-deg arg        Terrain correction output pixel dimension in
+                             degrees. Mutually exclusive with --pixel-dim-m.
+  --db                       Output values in dB scale.
 
   --ll arg (=verbose)        Log level, one of the following - 
                              verbose|debug|info|warning|error
@@ -60,13 +69,19 @@ Arguments:
                              processing
 
 
-https://github.com/cgi-estonia-space/ALUs
+https://github.com/kptr-juku/ALUs
 
 ```
 
+`--orbit` accepts either a specific POEORB/RESORB file or a directory from which the matching orbit is dynamically
+selected. If it is omitted, the orbit state vectors embedded in the input product are used without correction. If
+neither pixel dimension option is supplied, terrain correction derives the output resolution from the source product
+as before. Pixel dimensions must be positive; specifying both forms is an error.
+
 ## Performance
 
-Please see the latest and always updated comprehensive evaluation in the [Wiki](https://github.com/cgi-estonia-space/ALUs/wiki/Calibration-routine-evaluation)
+Please see the latest comprehensive evaluation in the
+[Wiki](https://github.com/cgi-estonia-space/ALUs/wiki/Calibration-routine-evaluation).
 
 **Following contents below might be deprecated**
 

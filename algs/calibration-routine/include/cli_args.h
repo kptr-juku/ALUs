@@ -48,6 +48,9 @@ public:
     std::string GetOutput() const { return output_; }
     bool DoSaveIntermediateResults() const { return wif_; };
     bool OutputValuesInDb() const { return db_values_; }
+    std::string GetOrbitPath() const { return orbit_path_; }
+    std::optional<double> GetPixelDimensionMeters() const;
+    std::optional<double> GetPixelDimensionDegrees() const;
     size_t GetGpuMemoryPercentage() const { return alus_args_.GetGpuMemoryPercentage(); }
     common::log::Level GetLogLevel() const { return alus_args_.GetLogLevel(); }
 
@@ -72,5 +75,8 @@ private:
     bool db_values_{false};
     std::string output_;
     bool wif_{false};
+    std::string orbit_path_;
+    double pixel_dimension_m_{};
+    double pixel_dimension_deg_{};
 };
 }  // namespace alus::calibrationroutine

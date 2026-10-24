@@ -23,15 +23,13 @@
 #include <vector>
 
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/xml_parser.hpp>
 #include <boost/tokenizer.hpp>
 
 #include "alus_log.h"
 #include "general_constants.h"
 #include "general_utils.h"
 #include "s1tbx-commons/io/sar_reader.h"
+#include "s1tbx-commons/sentinel1_utils.h"
 #include "s1tbx-io/sentinel1/sentinel1_constants.h"
 #include "snap-core/core/datamodel/band.h"
 #include "snap-core/core/datamodel/i_geo_coding.h"
@@ -535,38 +533,25 @@ void Sentinel1Level1Directory::AddGeoCoding(const std::shared_ptr<snapengine::Pr
 
     const std::shared_ptr<snapengine::MetadataElement> abs_root =
         snapengine::AbstractMetadata::GetAbstractedMetadata(product);
-    std::string acquisition_mode = abs_root->GetAttributeString(snapengine::AbstractMetadata::ACQUISITION_MODE);
-    int num_of_sub_swath;
-    if (acquisition_mode == "IW") {
-        num_of_sub_swath = 3;  // NOLINT
-    } else if (acquisition_mode == "EW") {
-        num_of_sub_swath = 5;  // NOLINT
-    } else {
-        num_of_sub_swath = 1;  // NOLINT
-    }
-
-    std::vector<std::string> band_names = product->GetBandNames();
+    const auto band_names = product->GetBandNames();
+    const auto sub_swath_names = Sentinel1Utils::GetSubSwathNames(product);
     std::shared_ptr<snapengine::Band> first_s_w_band;
     std::shared_ptr<snapengine::Band> last_s_w_band;
-    bool first_s_w_band_found = false;
-    bool last_s_w_band_found = false;
 
-    for (auto& band_name : band_names) {
-        if (!first_s_w_band_found && band_name.find(acquisition_mode + std::to_string(1)) != std::string::npos) {
-            first_s_w_band = product->GetBand(band_name);
-            first_s_w_band_found = true;
-        }
-
-        if (!last_s_w_band_found &&
-            band_name.find(acquisition_mode + std::to_string(num_of_sub_swath)) != std::string::npos) {
-            last_s_w_band = product->GetBand(band_name);
-            last_s_w_band_found = true;
+    if (!sub_swath_names.empty()) {
+        for (const auto& band_name : band_names) {
+            if (first_s_w_band == nullptr && band_name.find(sub_swath_names.front()) != std::string::npos) {
+                first_s_w_band = product->GetBand(band_name);
+            }
+            if (last_s_w_band == nullptr && band_name.find(sub_swath_names.back()) != std::string::npos) {
+                last_s_w_band = product->GetBand(band_name);
+            }
         }
     }
     if (!band_names.empty()) {
         if (first_s_w_band != nullptr && last_s_w_band != nullptr) {
-            const std::string first_s_w_prefix = acquisition_mode + std::to_string(1) + '_';
-            const std::string last_s_w_prefix = acquisition_mode + std::to_string(num_of_sub_swath) + '_';
+            const std::string first_s_w_prefix = sub_swath_names.front() + '_';
+            const std::string last_s_w_prefix = sub_swath_names.back() + '_';
             const auto first_s_w_band_geo_coding = band_geocoding_map_.find(first_s_w_prefix);
             const auto last_s_w_band_geo_coding = band_geocoding_map_.find(last_s_w_prefix);
             if (first_s_w_band_geo_coding != band_geocoding_map_.end() &&
@@ -691,7 +676,10 @@ void Sentinel1Level1Directory::AddAbstractedMetadataHeader(const std::shared_ptr
     acq_mode_ = abs_root->GetAttributeString(snapengine::AbstractMetadata::ACQUISITION_MODE);
     SetSLC(abs_root->GetAttributeString(snapengine::AbstractMetadata::SAMPLE_TYPE) == "COMPLEX");
 
-    AddProductInfoJSON(orig_prod_root);
+    if (product_dir_->Exists("productInfo.json")) {
+        LOGI << "productInfo.json exists for '" << GetProductName()
+             << "' but is not used; ALUs utilizes metadata from manifest.safe and the accompanying XML files only";
+    }
 
     // get metadata for each band
     AddBandAbstractedMetadata(abs_root, orig_prod_root);
@@ -901,40 +889,6 @@ std::shared_ptr<snapengine::MetadataElement> Sentinel1Level1Directory::FindEleme
         }
     }
     return nullptr;
-}
-void Sentinel1Level1Directory::AddProductInfoJSON(const std::shared_ptr<snapengine::MetadataElement>& orig_prod_root) {
-    if (product_dir_->Exists("productInfo.json")) {
-        try {
-            // THIS MAKES A SMALL ROUNDTRIP BETWEEN DIFFERENT MODELS AND FORMATS, BUT STARTING OUT LIKE ESA SNAP... CAN
-            // ALWAYS IMPROVE IF IT WORKS
-            boost::filesystem::path product_info_file = product_dir_->GetFile("productInfo.json");
-            boost::property_tree::ptree tree;
-            boost::property_tree::read_json(product_info_file.filename().string(), tree);
-            std::stringstream ss;
-            boost::property_tree::write_xml(ss, tree);
-            pugi::xml_document doc;
-            pugi::xml_parse_result result = doc.load(ss);
-            if (result) {
-                pugi::xml_node root = doc.document_element();
-                pugi::xml_document doc2;
-                doc2.append_child("ProductInfo");
-                doc2.document_element().append_move(root);
-                snapengine::AbstractMetadataIO::AddXMLMetadata(doc2.document_element(), orig_prod_root);
-            }
-            //            todo: delete comments after this has been tested
-            //            if (product_info_file.length() > 0) {
-            //                final BufferedReader streamReader = new BufferedReader(new
-            //                FileReader(productInfoFile.getPath())); final JSONParser parser = new JSONParser(); final
-            //                JSONObject json = (JSONObject)parser.parse(streamReader); json.remove("filenameMap");
-            //                snapengine::AbstractMetadataIO::AddXMLMetadata(JSONProductDirectory.jsonToXML("ProductInfo",
-            //                json),
-            //                                                               orig_prod_root);
-            //            }
-        } catch (const std::exception& e) {
-            //            todo: not sure why snap had throw commented out, I will just log atm
-            LOGE << "Unable to read productInfo " << e.what();
-        }
-    }
 }
 void Sentinel1Level1Directory::AddBandAbstractedMetadata(
     const std::shared_ptr<snapengine::MetadataElement>& abs_root,

@@ -4,7 +4,7 @@ set -e
 
 function print_help {
   echo "Usage:"
-  echo "$0 <test data folder> [optional - output folder]"
+  echo "$0 <eo data dir> [optional - output folder]"
 }
 
 if [ $# -lt 1 ]; then

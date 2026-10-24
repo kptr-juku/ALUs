@@ -60,8 +60,6 @@ private:
     void AddTiePointGrids(const std::shared_ptr<snapengine::Product>& product,
                           const std::shared_ptr<snapengine::Band>& band, std::string_view img_x_m_l_name,
                           std::string_view tpg_prefix);
-    //    todo: check if this works like in snap...
-    void AddProductInfoJSON(const std::shared_ptr<snapengine::MetadataElement>& orig_prod_root);
     void AddBandAbstractedMetadata(const std::shared_ptr<snapengine::MetadataElement>& abs_root,
                                    const std::shared_ptr<snapengine::MetadataElement>& orig_prod_root);
     static void AddOrbitStateVectors(const std::shared_ptr<snapengine::MetadataElement>& abs_root,

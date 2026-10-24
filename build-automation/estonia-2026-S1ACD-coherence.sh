@@ -4,7 +4,7 @@ set -euo pipefail
 
 function print_help {
     echo "Usage:"
-    echo "$0 <test data folder> <COPDEM 30m COG location> <orbit files dir> [optional - output folder]"
+    echo "$0 <eo data dir> <COPDEM 30m COG location> <orbit files dir> [optional - output folder]"
 }
 
 if [[ $# -lt 3 || $# -gt 4 ]]; then
@@ -28,6 +28,9 @@ else
 fi
 
 mkdir -p "$output_dir"
+
+# This pairwise alus-coh run intentionally duplicates estonia-2026-S1ACD-coherence-timeline.sh.
+# Both scripts should produce identical rasters; keeping both guards parity between alus-coh and alus-coht.
 
 s1d_20260622="S1D_IW_SLC__1SDV_20260622T155540_20260622T155607_003351_005E29_9073.SAFE"
 s1a_20260627="S1A_IW_SLC__1SDV_20260627T155620_20260627T155647_065157_0836A8_D8AA.SAFE"

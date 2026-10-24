@@ -38,8 +38,12 @@ public:
     [[nodiscard]] std::string GetTimelineEnd() const { return timeline_end_; }
     [[nodiscard]] std::string GetTimelineInput() const { return timeline_input_; }
     [[nodiscard]] std::string GetTimelineMission() const { return timeline_mission_; }
+    [[nodiscard]] std::optional<size_t> GetRelativeOrbit() const;
+    [[nodiscard]] std::optional<std::string> GetOrbitDirection() const;
     [[nodiscard]] std::string GetInputReference() const { return input_reference_; }
     [[nodiscard]] std::string GetInputSecondary() const { return input_secondary_; }
+    [[nodiscard]] std::string GetEtadReference() const { return etad_reference_; }
+    [[nodiscard]] std::string GetEtadSecondary() const { return etad_secondary_; }
     [[nodiscard]] std::optional<std::tuple<size_t, size_t>> GetBurstIndexesReference() const;
     [[nodiscard]] std::optional<std::tuple<size_t, size_t>> GetBurstIndexesSecondary() const;
     [[nodiscard]] std::string GetSubswath() const { return subswath_; }
@@ -57,6 +61,8 @@ public:
     [[nodiscard]] bool DoSubtractFlatEarthPhase() const { return subtract_flat_earth_phase_; };
     [[nodiscard]] size_t GetRangeWindow() const { return range_window_; }
     [[nodiscard]] size_t GetAzimuthWindow() const { return az_window_; }
+    [[nodiscard]] std::optional<double> GetPixelDimensionMeters() const;
+    [[nodiscard]] std::optional<double> GetPixelDimensionDegrees() const;
     [[nodiscard]] bool DoMaskOutAreaWithoutElevation() const { return !disable_coregistration_elevation_mask_; }
     [[nodiscard]] size_t GetGpuMemoryPercentage() const { return alus_args_.GetGpuMemoryPercentage(); }
     [[nodiscard]] common::log::Level GetLogLevel() const { return alus_args_.GetLogLevel(); }
@@ -74,6 +80,8 @@ private:
     bool timeline_args_;
     std::string input_reference_;
     std::string input_secondary_;
+    std::string etad_reference_;
+    std::string etad_secondary_;
     size_t burst_start_index_reference_;
     size_t burst_last_index_reference_;
     size_t burst_start_index_secondary_;
@@ -83,6 +91,8 @@ private:
     std::string timeline_end_;
     std::string timeline_input_;
     std::string timeline_mission_;
+    size_t timeline_relative_orbit_{};
+    std::string timeline_orbit_direction_;
 
     std::string subswath_;
     std::string polarisation_;
@@ -100,6 +110,8 @@ private:
     std::string orbit_file_reference_;
     std::string orbit_file_secondary_;
     std::string orbit_file_dir_;
+    double pixel_dimension_m_{};
+    double pixel_dimension_deg_{};
 };
 
 }  // namespace alus::coherenceestimationroutine

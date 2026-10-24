@@ -24,7 +24,7 @@ Arguments:
                             processing
 
 
-https://github.com/cgi-estonia-space/ALUs/releases/
+https://github.com/kptr-juku/ALUs/releases/
 ```
 
 ## Processing overview

@@ -17,5 +17,4 @@ CUDAARCHS="60;70;75;80;86;89;90;100;120-real;120-virtual" cmake $repo -B$build_d
 cmake --build $build_dir --target all -- -j 8
 cd $build_dir/alus_package
 cp ../../VERSION ../../README.md .
-cp -r ../../jupyter-notebook .
 tar -czvf $package_filename *

@@ -79,31 +79,31 @@ std::string AdjustFilePath(std::string_view file_path) {
 }
 
 
-std::string ConvertToWkt(std::string_view shp_file_path) {
+std::string ConvertToWkt(std::string_view vector_file_path) {
 
-    auto ds = (GDALDataset*)GDALOpenEx( shp_file_path.data(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr);
+    auto ds = (GDALDataset*)GDALOpenEx( vector_file_path.data(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr);
 
     CHECK_GDAL_PTR(ds);
 
     auto layers = ds->GetLayers();
     if (layers.size() != 1) {
-        throw std::invalid_argument("Expecting a shapefile with 1 layer exact.");
+        throw std::invalid_argument("Expecting an AOI vector dataset with exactly 1 layer.");
     }
 
     auto aoi_layer = layers[0];
     if (aoi_layer->GetFeatureCount() == 0) {
-        throw std::invalid_argument("Expecting a shapefile with some features.");
+        throw std::invalid_argument("Expecting an AOI vector dataset with at least 1 feature.");
     }
     auto* feat = aoi_layer->GetNextFeature();
     CHECK_GDAL_PTR(feat);
     auto gref = feat->GetGeometryRef();
     CHECK_GDAL_PTR(gref);
-    char* wkt_shp;
-    CHECK_OGR_ERROR(gref->exportToWkt(&wkt_shp));
+    char* wkt;
+    CHECK_OGR_ERROR(gref->exportToWkt(&wkt));
     auto cpl_free = [](char* csl) { CPLFree(csl); };
-    std::unique_ptr<char, decltype(cpl_free)> guard(wkt_shp, cpl_free);
+    std::unique_ptr<char, decltype(cpl_free)> guard(wkt, cpl_free);
 
-    return std::string(wkt_shp);
+    return std::string(wkt);
 }
 
 void AddMetadataTo(GDALDataset* ds, const common::metadata::Container& md) {

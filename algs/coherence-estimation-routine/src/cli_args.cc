@@ -14,6 +14,7 @@
 
 #include "cli_args.h"
 
+#include <cmath>
 #include <filesystem>
 #include <sstream>
 #include <string>
@@ -56,7 +57,11 @@ void Arguments::Construct() {
         ( "orbit_ref", po::value<std::string>(&orbit_file_reference_),
             "Reference scene's POEORB/RESORB file. Can be unspecified.")
         ( "orbit_sec", po::value<std::string>(&orbit_file_secondary_),
-            "Secondary scene's POEORB/RESORB file. Can be unspecified.");
+            "Secondary scene's POEORB/RESORB file. Can be unspecified.")
+        ("etad_ref", po::value<std::string>(&etad_reference_),
+            "Reference scene's matching ETAD SAFE dataset (zipped or unpacked)")
+        ("etad_sec", po::value<std::string>(&etad_secondary_),
+            "Secondary scene's matching ETAD SAFE dataset (zipped or unpacked)");
         // clang-format on
     } else {
         // clang-format off
@@ -64,7 +69,11 @@ void Arguments::Construct() {
             ( "input,i", po::value<std::string>(&timeline_input_)->required(), "Timeline search directory")
             ("timeline_start,s", po::value<std::string>(&timeline_start_)->required(), "Timeline start - format YYYYMMDD")
             ("timeline_end,e", po::value<std::string>(&timeline_end_)->required(), "Timeline end - format YYYYMMDD")
-            ( "timeline_mission,m", po::value<std::string>(&timeline_mission_), "Timeline mission filter - S1A or S1B");
+            ( "timeline_mission,m", po::value<std::string>(&timeline_mission_), "Timeline mission filter - S1A|S1B|S1C|S1D")
+            ("relative-orbit", po::value<size_t>(&timeline_relative_orbit_),
+             "Timeline relative orbit filter - range 1-175")
+            ("orbit-direction", po::value<std::string>(&timeline_orbit_direction_),
+             "Timeline orbit direction filter - ascending or descending");
         // clang-format on
     }
     // clang-format on
@@ -75,8 +84,9 @@ void Arguments::Construct() {
         ("polarisation,p", po::value<std::string>(&polarisation_)->required(), polarisation_help.c_str())
         ("sw", po::value<std::string>(&subswath_), "Reference scene's subswath")
         ("aoi,a", po::value<std::string>(&aoi_),
-         "Area Of Interest WKT polygon. Or shapefile (.shp) consisting similar geometry."
-         "Overrules first and last burst indexes and subswath selections.")
+         "Area Of Interest WKT polygon or shapefile/GeoJSON file consisting similar geometry. "
+         "Overrules first and last burst indexes. If --sw is omitted, intersecting subswaths are selected "
+         "automatically.")
         ("dem", po::value<std::vector<std::string>>(&dem_files_)->required(),
          "DEM file(s). SRTM3 and Copernicus DEM 30m COG are currently supported.")
         ("no_mask_cor", po::bool_switch(&disable_coregistration_elevation_mask_),
@@ -93,6 +103,10 @@ void Arguments::Construct() {
         "range window size in pixels.")
         ("az_win", po::value<size_t>(&az_window_)->default_value(0U),
         "azimuth window size in pixels, if zero derived from range window.")
+        ("pixel-dim-m", po::value<double>(&pixel_dimension_m_),
+        "Terrain correction output pixel dimension in meters. Mutually exclusive with --pixel-dim-deg.")
+        ("pixel-dim-deg", po::value<double>(&pixel_dimension_deg_),
+        "Terrain correction output pixel dimension in degrees. Mutually exclusive with --pixel-dim-m.")
         ("orbit_degree", po::value<size_t>(&orbit_degree_)->default_value(3U), "")
         ("wif,w", po::bool_switch(&wif_)->default_value(false),
          "Write intermediate results (will be saved in the same folder as final outcome)."
@@ -116,16 +130,41 @@ std::string Arguments::GetHelp() const {
 
 void Arguments::Check() {
     boost::program_options::notify(vm_);
+    if (vm_.count("pixel-dim-m") != 0U && vm_.count("pixel-dim-deg") != 0U) {
+        throw std::invalid_argument("--pixel-dim-m and --pixel-dim-deg cannot be used together.");
+    }
+    if (vm_.count("pixel-dim-m") != 0U && (!std::isfinite(pixel_dimension_m_) || pixel_dimension_m_ <= 0.0)) {
+        throw std::invalid_argument("--pixel-dim-m must be a finite value greater than zero.");
+    }
+    if (vm_.count("pixel-dim-deg") != 0U && (!std::isfinite(pixel_dimension_deg_) || pixel_dimension_deg_ <= 0.0)) {
+        throw std::invalid_argument("--pixel-dim-deg must be a finite value greater than zero.");
+    }
     if ((vm_.count("b_ref1") != vm_.count("b_ref2")) != (vm_.count("b_sec1") != vm_.count("b_sec2"))) {
         throw std::invalid_argument(
             "All burst indexes must be either supplied or left undefined. "
             "Use -a [ --aoi ] to skip defining burst indexes.");
+    }
+    if (vm_.count("etad_ref") != vm_.count("etad_sec")) {
+        throw std::invalid_argument("--etad_ref and --etad_sec must be supplied together.");
+    }
+    if (vm_.count("etad_ref") && (etad_reference_.empty() || etad_secondary_.empty())) {
+        throw std::invalid_argument("--etad_ref and --etad_sec must not be empty.");
     }
 
     if (timeline_args_ && !timeline_mission_.empty()) {
         if (timeline_mission_ != "S1B" && timeline_mission_ != "S1A") {
             throw std::invalid_argument("timeline_mission must be S1A, S1B or empty");
         }
+    }
+
+    if (timeline_args_ && vm_.count("relative-orbit") != 0U &&
+        (timeline_relative_orbit_ == 0U || timeline_relative_orbit_ > 175U)) {
+        throw std::invalid_argument("--relative-orbit must be in range 1-175");
+    }
+
+    if (timeline_args_ && vm_.count("orbit-direction") != 0U && timeline_orbit_direction_ != "ascending" &&
+        timeline_orbit_direction_ != "descending") {
+        throw std::invalid_argument("--orbit-direction must be ascending or descending");
     }
 
     if (timeline_args_ && !std::filesystem::is_directory(output_)) {
@@ -141,6 +180,22 @@ std::optional<std::string> Arguments::GetAoi() const {
     }
 
     return std::make_optional(aoi_);
+}
+
+std::optional<double> Arguments::GetPixelDimensionMeters() const {
+    return vm_.count("pixel-dim-m") == 0U ? std::nullopt : std::make_optional(pixel_dimension_m_);
+}
+
+std::optional<double> Arguments::GetPixelDimensionDegrees() const {
+    return vm_.count("pixel-dim-deg") == 0U ? std::nullopt : std::make_optional(pixel_dimension_deg_);
+}
+
+std::optional<size_t> Arguments::GetRelativeOrbit() const {
+    return vm_.count("relative-orbit") == 0U ? std::nullopt : std::make_optional(timeline_relative_orbit_);
+}
+
+std::optional<std::string> Arguments::GetOrbitDirection() const {
+    return vm_.count("orbit-direction") == 0U ? std::nullopt : std::make_optional(timeline_orbit_direction_);
 }
 
 std::optional<std::tuple<size_t, size_t>> Arguments::GetBurstIndexesReference() const {

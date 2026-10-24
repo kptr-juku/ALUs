@@ -54,7 +54,7 @@ std::shared_ptr<snapengine::Product> Sentinel1ProductReader::ReadProductNodesImp
 
         if (Sentinel1ProductReaderPlugIn::IsLevel2(input_path) || Sentinel1ProductReaderPlugIn::IsLevel0(input_path)) {
             //            data_dir_ = std::make_shared<Sentinel1Level2Directory>(input_path);
-            throw std::runtime_error("currently not supported");
+            throw std::runtime_error("Level 0 and level 2 datasets are not supported.");
         }
         data_dir_ = std::make_shared<Sentinel1Level1Directory>(input_path);
 

@@ -36,6 +36,7 @@ namespace gdal::constants {
 // GDAL driver constants
 constexpr char GDAL_MEM_DRIVER[]{"MEM"};
 constexpr char GDAL_GTIFF_DRIVER[]{"GTiff"};
+constexpr char GDAL_NETCDF_DRIVER[]{"netCDF"};
 constexpr char SQLITE_DRIVER[]{"SQLite"};
 constexpr char GDAL_GTIFF_FILE_EXTENSION[]{".tif"};
 constexpr int GDAL_DEFAULT_RASTER_BAND{1};
@@ -182,7 +183,7 @@ std::string FindOptimalTileSize(int raster_dimension);
  */
 std::string AdjustFilePath(std::string_view file_path);
 
-std::string ConvertToWkt(std::string_view shp_file_path);
+std::string ConvertToWkt(std::string_view vector_file_path);
 
 void AddMetadataTo(GDALDataset* ds, const common::metadata::Container& md);
 

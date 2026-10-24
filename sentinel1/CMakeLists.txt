@@ -3,6 +3,8 @@ list(APPEND SENTINEL1_UTIL_SOURCES-GPU
         s1tbx-commons/sar_geocoding.cu
         )
 list(APPEND SENTINEL1_UTIL_SOURCES
+        etad/etad_preparation.cc
+        etad/slc_metadata.cc
         s1tbx-commons/sentinel1_utils.cc
         s1tbx-commons/subswath_info.cc
         jlinda/jlinda-core/point.cc
@@ -14,6 +16,7 @@ list(APPEND SENTINEL1_UTIL_SOURCES
         jlinda/jlinda-core/ellipsoid.cc
         jlinda/jlinda-core/geopoint.cc
         s1tbx-io/sentinel1/sentinel1_product_reader.cc
+        s1tbx-io/sentinel1/sentinel1_etad_product.cc
         s1tbx-io/sentinel1/sentinel1_level1_directory.cc
         s1tbx-io/sentinel1/sentinel1_product_reader_plug_in.cc
         s1tbx-io/geotiffxml/geo_tiff_utils.cc
@@ -30,6 +33,7 @@ list(APPEND SENTINEL1_UTIL_SOURCES
 list(APPEND SENTINEL1_UTIL_INCLUDE_DIRS
         #sentinel1
         ${CMAKE_CURRENT_LIST_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/etad
         ${CMAKE_CURRENT_LIST_DIR}/io/orbits/sentinel1
         ${CMAKE_CURRENT_LIST_DIR}/jlinda/jlinda-core
         ${CMAKE_CURRENT_LIST_DIR}/s1tbx-io/sentinel1
@@ -81,5 +85,6 @@ target_link_libraries(sentinel1-util-static
         Eigen3::Eigen
         staticZipper
         common-util-static
+        PRIVATE
+        pugixml-static
         )
-
