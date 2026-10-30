@@ -22,6 +22,7 @@
 #include <boost/numeric/conversion/cast.hpp>
 
 #include "backgeocoding_constants.h"
+#include "backgeocoding_geometry.h"
 #include "bilinear_computation.h"
 #include "burst_offset_computation.h"
 #include "cuda_util.h"
@@ -111,24 +112,23 @@ Rectangle Backgeocoding::PositionCompute(int m_burst_index, int s_burst_index, R
         return {0, 0, 0, 0};
     }
     const int margin = snapengine::BILINEAR_INTERPOLATION_KERNEL_SIZE;
-    Rectangle source_rectangle;
 
     const int first_line_index = s_burst_index * slave_utils_->subswath_.at(0)->lines_per_burst_;
     const int last_line_index = first_line_index + slave_utils_->subswath_.at(0)->lines_per_burst_ - 1;
     const int first_pixel_index = 0;
     const int last_pixel_index = slave_utils_->subswath_.at(0)->samples_per_burst_ - 1;
 
-    coord_min_max.x_min = std::max(coord_min_max.x_min - margin, first_pixel_index);
-    coord_min_max.x_max = std::min(coord_min_max.x_max + margin, last_pixel_index);
-    coord_min_max.y_min = std::max(coord_min_max.y_min - margin, first_line_index);
-    coord_min_max.y_max = std::min(coord_min_max.y_max + margin, last_line_index);
+    coord_min_max.x_min = static_cast<int>(std::max<int64_t>(static_cast<int64_t>(coord_min_max.x_min) - margin,
+                                                          first_pixel_index));
+    coord_min_max.x_max = static_cast<int>(std::min<int64_t>(static_cast<int64_t>(coord_min_max.x_max) + margin,
+                                                          last_pixel_index));
+    coord_min_max.y_min = static_cast<int>(std::max<int64_t>(static_cast<int64_t>(coord_min_max.y_min) - margin,
+                                                          first_line_index));
+    coord_min_max.y_max = static_cast<int>(std::min<int64_t>(static_cast<int64_t>(coord_min_max.y_max) + margin,
+                                                          last_line_index));
 
-    source_rectangle.x = coord_min_max.x_min;
-    source_rectangle.y = coord_min_max.y_min;
-    source_rectangle.width = coord_min_max.x_max - coord_min_max.x_min + 1;
-    source_rectangle.height = coord_min_max.y_max - coord_min_max.y_min + 1;
-
-    return source_rectangle;
+    return RectangleFromInclusiveBounds(coord_min_max.x_min, coord_min_max.x_max, coord_min_max.y_min,
+                                        coord_min_max.y_max);
 }
 
 void Backgeocoding::CoreCompute(const CoreComputeParams& params) const {
