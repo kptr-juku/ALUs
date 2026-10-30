@@ -22,6 +22,7 @@
 #include <thread>
 
 #include "alus_log.h"
+#include "backgeocoding_geometry.h"
 #include "dem_property.h"
 #include "dem_type.h"
 #include "pointer_holders.h"
@@ -100,7 +101,7 @@ PositionComputeResults BackgeocodingController::PositionCompute(int m_burst_inde
     PositionComputeResults result;
     result.slave_area =
         backgeocoding_->PositionCompute(m_burst_index, s_burst_index, target_area, device_x_points, device_y_points);
-    result.demod_size = result.slave_area.width * result.slave_area.height;
+    result.demod_size = CheckedPixelCount(result.slave_area);
 
     return result;
 }

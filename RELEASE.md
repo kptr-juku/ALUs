@@ -1,3 +1,21 @@
+# Release 1.8.1
+
+## Breaking changes
+
+## Known Caveats
+* The caveats listed for [1.8.0](#release-180) still apply.
+
+## Major Features and Improvements
+
+## Bug Fixes and Other Changes
+* Fixed a backgeocoding tile-creation edge case when mapped bounds fall outside the secondary burst. Disjoint bounds
+  now produce an empty tile instead of negative dimensions and an invalid allocation size. Tile sizing also checks
+  for negative dimensions and allocation overflow - [implementation](https://github.com/kptr-juku/ALUs/commit/92c14bea)
+* Added four host-only regression tests covering disjoint bounds, inclusive dimensions, invalid sizes and pixel-count
+  arithmetic beyond the signed integer range.
+
+## Thanks to our Contributors
+
 # Release 1.8.0
 
 ## Breaking changes

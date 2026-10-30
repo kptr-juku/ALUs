@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "alus_log.h"
+#include "backgeocoding_geometry.h"
 #include "cuda_ptr.h"
 #include "cuda_util.h"
 
@@ -39,7 +40,7 @@ void BackgeocodingController::BackgeocodingWorker::Work() {
     }
 
     try {
-        const size_t tile_size = params_.master_input_area.width * params_.master_input_area.height;
+        const size_t tile_size = CheckedPixelCount(params_.master_input_area);
         std::vector<int16_t> master_tile_i(tile_size);
         std::vector<int16_t> master_tile_q(tile_size);
         controller_->ReadMaster(params_.master_input_area, master_tile_i.data(), master_tile_q.data());
@@ -60,7 +61,7 @@ void BackgeocodingController::BackgeocodingWorker::Work() {
         std::vector<float> etad_results;
 
         // Position computation succeeded
-        if (pos_results.slave_area.width != 0 && pos_results.slave_area.height != 0) {
+        if (pos_results.slave_area.width > 0 && pos_results.slave_area.height > 0) {
             std::vector<int16_t> slave_tile_i(pos_results.demod_size);
             std::vector<int16_t> slave_tile_q(pos_results.demod_size);
 

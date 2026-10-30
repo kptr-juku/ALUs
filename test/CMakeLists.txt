@@ -123,3 +123,14 @@ set_target_properties(sentinel1-etad-unit-test PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${ALUS_UNIT_TEST_BINARY_OUTPUT_DIR})
 add_test(NAME sentinel1-etad-unit-test COMMAND sentinel1-etad-unit-test)
 set_tests_properties(sentinel1-etad-unit-test PROPERTIES LABELS unit)
+
+# Geometry checks run entirely on the host and do not link CUDA libraries.
+add_executable(backgeocoding-geometry-unit-test src/backgeocoding_geometry_test.cc)
+target_include_directories(backgeocoding-geometry-unit-test PRIVATE
+        ${PROJECT_SOURCE_DIR}/algs/backgeocoding/include
+        ${PROJECT_SOURCE_DIR}/util/common/include)
+target_link_libraries(backgeocoding-geometry-unit-test PRIVATE gtest_main)
+set_target_properties(backgeocoding-geometry-unit-test PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${ALUS_UNIT_TEST_BINARY_OUTPUT_DIR})
+add_test(NAME backgeocoding-geometry-unit-test COMMAND backgeocoding-geometry-unit-test)
+set_tests_properties(backgeocoding-geometry-unit-test PROPERTIES LABELS unit)

@@ -7,7 +7,7 @@ endif()
 project(ALUs
         LANGUAGES CXX CUDA
         DESCRIPTION "Parallel ALUs for geospatial data processing"
-        VERSION 1.8.0
+        VERSION 1.8.1
         )
 
 set(CMAKE_CUDA_STANDARD 17)

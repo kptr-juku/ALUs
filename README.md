@@ -22,8 +22,8 @@ Use [ALUs-platform](https://github.com/kptr-juku/ALUs-platform) for prerequisite
 image builds, and container usage. See [Dependencies and Prerequisites](DEPENDENCIES.md) for an overview of its setup
 layers. Verified releases are available from https://github.com/kptr-juku/ALUs/releases.
 
-Release 1.8.0 packages target Ubuntu 22.04 and 24.04. See the [release notes](RELEASE.md#release-180) for
-ETAD coherence support, burst-product processing and other changes.
+Release 1.8.1 packages target Ubuntu 22.04 and 24.04. See the [release notes](RELEASE.md#release-181) for
+the backgeocoding tile-boundary fix and earlier changes.
 
 The development setup from ALUs-platform is required for source builds. Initialize the submodules and configure an
 out-of-source release build:
